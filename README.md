@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/meyerhold.svg)](https://crates.io/crates/meyerhold)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Progressive reader for [Playwright MCP](https://github.com/anthropics/mcp-servers/tree/main/src/playwright) snapshot JSON files.
+Progressive reader for [Playwright MCP](https://github.com/microsoft/playwright-mcp) snapshot JSON files.
 
 Parses the JSON output from `browser_snapshot` tool, which wraps [Playwright](https://playwright.dev/)'s accessibility tree snapshot in MCP format.
 
