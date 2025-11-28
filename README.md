@@ -5,8 +5,6 @@
 
 Progressive reader for Playwright MCP snapshot JSON files.
 
-Named after **Vsevolod Meyerhold** (1874-1940), the revolutionary Russian theatre director known for constructivist staging and structural analysis of theatrical elements.
-
 ## Features
 
 - **Summary view** - Quick overview of page URL, title, tabs, errors, and element count
