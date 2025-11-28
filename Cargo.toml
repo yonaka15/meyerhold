@@ -1,6 +1,6 @@
 [package]
 name = "meyerhold"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Yoshifumi Nakahira"]
 description = "Progressive reader for Playwright MCP snapshot JSON files"
