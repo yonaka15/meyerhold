@@ -2,10 +2,11 @@
 name = "meyerhold"
 version = "0.1.0"
 edition = "2021"
-authors = ["Yoshifumi Nakahira <@yonaka15>"]
+authors = ["Yoshifumi Nakahira"]
 description = "Progressive reader for Playwright MCP snapshot JSON files"
 license = "MIT"
 repository = "https://github.com/yonaka15/meyerhold"
+readme = "README.md"
 keywords = ["playwright", "mcp", "snapshot", "cli"]
 categories = ["command-line-utilities", "development-tools"]
 
