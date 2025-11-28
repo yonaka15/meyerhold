@@ -1,5 +1,8 @@
 # meyerhold
 
+[![Crates.io](https://img.shields.io/crates/v/meyerhold.svg)](https://crates.io/crates/meyerhold)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Progressive reader for Playwright MCP snapshot JSON files.
 
 Named after **Vsevolod Meyerhold** (1874-1940), the revolutionary Russian theatre director known for constructivist staging and structural analysis of theatrical elements.
@@ -16,13 +19,13 @@ Named after **Vsevolod Meyerhold** (1874-1940), the revolutionary Russian theatr
 ## Installation
 
 ```bash
+# From crates.io
+cargo install meyerhold
+
 # From source
 git clone https://github.com/yonaka15/meyerhold.git
 cd meyerhold
 cargo install --path .
-
-# Or build directly
-cargo build --release
 ```
 
 ## Usage
