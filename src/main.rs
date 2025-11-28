@@ -1,8 +1,6 @@
 //! # meyerhold
 //!
 //! Progressive reader for Playwright MCP snapshot JSON files.
-//! Named after Vsevolod Meyerhold (1874-1940), the revolutionary Russian
-//! theatre director known for constructivist staging and structural analysis.
 //!
 //! ## Usage
 //!
