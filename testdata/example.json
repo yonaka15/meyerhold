@@ -1,0 +1,8 @@
+{
+  "content": [
+    {
+      "text": "### Open tabs\n- 0: (current) [Example Domain] (https://example.com/)\n- 1: [フセヴォロド・メイエルホリド - Wikipedia] (https://ja.wikipedia.org/wiki/%E3%83%95%E3%82%BB%E3%83%B4%E3%82%A9%E3%83%AD%E3%83%89%E3%83%BB%E3%83%A1%E3%82%A4%E3%82%A8%E3%83%AB%E3%83%9B%E3%83%AA%E3%83%89)\n- 2: [コンスタンチン・スタニスラフスキー - Wikipedia] (https://ja.wikipedia.org/wiki/%E3%82%B3%E3%83%B3%E3%82%B9%E3%82%BF%E3%83%B3%E3%83%81%E3%83%B3%E3%83%BB%E3%82%B9%E3%82%BF%E3%83%8B%E3%82%B9%E3%83%A9%E3%83%95%E3%82%B9%E3%82%AD%E3%83%BC)\n\n### Page state\n- Page URL: https://example.com/\n- Page Title: Example Domain\n- Page Snapshot:\n```yaml\n- generic [ref=e2]:\n  - heading \"Example Domain\" [level=1] [ref=e3]\n  - paragraph [ref=e4]: This domain is for use in documentation examples without needing permission. Avoid use in operations.\n  - paragraph [ref=e5]:\n    - link \"Learn more\" [ref=e6] [cursor=pointer]:\n      - /url: https://iana.org/domains/example\n```\n",
+      "type": "text"
+    }
+  ]
+}

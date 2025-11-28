@@ -1,0 +1,137 @@
+# meyerhold
+
+Progressive reader for Playwright MCP snapshot JSON files. Parses `.content[0].text` structure from browser snapshots.
+
+## Critical Guardrails
+
+- **Snapshot format assumption**: Tool expects Playwright MCP output structure (`{"content":[{"text":"..."}]}`). Raw YAML/HTML won't work.
+- **Read-only tool**: Analyzes snapshots only. Does not interact with browsers or modify files.
+- **Exit codes matter**: Non-zero exits indicate specific errors (1=file, 2=JSON, 3=format, 4=search, 5=regex).
+
+## Core Workflow (80% of use cases)
+
+### 1. Quick Page Analysis
+
+```bash
+# Get summary (URL, title, element count)
+meyerhold snapshot.json
+
+# Check for errors first
+meyerhold snapshot.json --section errors
+
+# List interactive elements
+meyerhold snapshot.json --list all --format table
+```
+
+### 2. Find Specific Elements
+
+```bash
+# Search by text (case-insensitive)
+meyerhold snapshot.json --search "Sign in"
+
+# Search with regex
+meyerhold snapshot.json --search "button.*submit" --regex
+
+# List by type
+meyerhold snapshot.json --list buttons
+meyerhold snapshot.json --list links
+meyerhold snapshot.json --list inputs
+```
+
+### 3. DOM Navigation
+
+```bash
+# Top-level structure (depth 2)
+meyerhold snapshot.json --depth 2
+
+# Subtree from specific ref
+meyerhold snapshot.json --depth 3 --from e407
+```
+
+### 4. Export for Further Processing
+
+```bash
+# JSON output for parsing
+meyerhold snapshot.json --list links --format json
+
+# Summary as JSON
+meyerhold snapshot.json --format json
+```
+
+## Common Alternatives
+
+- **Need tabs info**: `--section tabs` (not in summary view)
+- **Large output**: Add `--limit N` to truncate results
+- **Line references**: Add `-n` for line numbers
+- **Raw tree access**: `--section tree` for full YAML block
+
+## Anti-patterns to Avoid
+
+- **Parsing raw snapshot with jq**: Use meyerhold instead → Better element extraction and search
+- **Grepping snapshot files directly**: `--search` handles context and refs correctly
+- **Reading full tree for element finding**: `--list <type>` is faster and cleaner
+- **Ignoring exit codes**: Check return value when scripting (especially for search)
+
+## Development
+
+### Building
+
+```bash
+cargo build           # Debug build
+cargo build --release # Release build
+cargo install --path . # Install locally
+```
+
+### Running Tests
+
+```bash
+cargo test            # Run all tests
+cargo test -- --nocapture  # Show output
+```
+
+### Project Structure
+
+```
+├── Cargo.toml           # Package manifest
+├── src/
+│   └── main.rs          # CLI entry point and all logic
+├── tests/
+│   └── integration.rs   # Integration tests (24 tests)
+└── testdata/
+    └── example.json     # Sample snapshot for tests
+```
+
+### Key Functions (src/main.rs)
+
+- `extract_snapshot_text()`: Parse `.content[0].text` from JSON
+- `extract_elements()`: Find elements by type (buttons, links, etc.)
+- `handle_tree()`: DOM navigation with depth/from-ref support
+- `handle_search()`: Text/regex pattern matching
+
+### Dependencies
+
+```toml
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+regex = "1.10"
+clap = { version = "4", features = ["derive"] }
+once_cell = "1.19"
+```
+
+## Quick Reference
+
+| Command | Purpose |
+|---------|---------|
+| `meyerhold FILE` | Summary view |
+| `--section tabs\|errors\|tree\|page` | Show section |
+| `--list buttons\|links\|inputs\|all` | List elements |
+| `--depth N` | Tree navigation |
+| `--search "pattern"` | Find text |
+| `--search "pattern" --regex` | Regex search |
+| `--format json\|table\|text` | Output format |
+| `--limit N` | Truncate output |
+| `-n` | Line numbers |
+
+## TODOs
+
+None currently tracked.
