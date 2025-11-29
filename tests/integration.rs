@@ -299,7 +299,7 @@ fn test_valid_json_wrong_structure() {
         .arg(&wrong_file)
         .assert()
         .failure()
-        .stderr(predicate::str::contains("Could not find snapshot text"));
+        .stderr(predicate::str::contains("Missing snapshot content"));
 
     std::fs::remove_file(&wrong_file).ok();
 }
@@ -314,7 +314,7 @@ fn test_empty_content_array() {
         .arg(&empty_arr_file)
         .assert()
         .failure()
-        .stderr(predicate::str::contains("Could not find snapshot text"));
+        .stderr(predicate::str::contains("Missing snapshot content"));
 
     std::fs::remove_file(&empty_arr_file).ok();
 }
