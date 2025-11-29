@@ -318,3 +318,217 @@ fn test_empty_content_array() {
 
     std::fs::remove_file(&empty_arr_file).ok();
 }
+
+// =============================================================================
+// Multi-Dataset Tests - Real World SPA Applications
+// =============================================================================
+
+fn get_test_data(file: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(format!("testdata/{}", file))
+}
+
+// -----------------------------------------------------------------------------
+// TodoMVC React Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn test_todomvc_summary() {
+    let snapshot = get_test_data("todomvc-react.json");
+    meyerhold()
+        .arg(&snapshot)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("React • TodoMVC"))
+        .stdout(predicate::str::contains("demo.playwright.dev"));
+}
+
+#[test]
+fn test_todomvc_search_todo_item() {
+    let snapshot = get_test_data("todomvc-react.json");
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--search", "groceries"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Found"));
+}
+
+#[test]
+fn test_todomvc_list_checkboxes() {
+    let snapshot = get_test_data("todomvc-react.json");
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--list", "inputs"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("checkbox"));
+}
+
+#[test]
+fn test_todomvc_tree_navigation() {
+    let snapshot = get_test_data("todomvc-react.json");
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--depth", "4"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("[ref="));
+}
+
+// -----------------------------------------------------------------------------
+// UI Testing Playground Tests (Apache 2.0 License)
+// -----------------------------------------------------------------------------
+
+#[test]
+fn test_uitestingplayground_summary() {
+    let snapshot = get_test_data("uitestingplayground.json");
+    meyerhold()
+        .arg(&snapshot)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("UI Test Automation Playground"))
+        .stdout(predicate::str::contains("Elements:"));
+}
+
+#[test]
+fn test_uitestingplayground_list_links() {
+    let snapshot = get_test_data("uitestingplayground.json");
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--list", "links"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("link"))
+        .stdout(predicate::str::contains("Dynamic ID").or(predicate::str::contains("Click")));
+}
+
+#[test]
+fn test_uitestingplayground_search_ajax() {
+    let snapshot = get_test_data("uitestingplayground.json");
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--search", "AJAX"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Found"));
+}
+
+#[test]
+fn test_uitestingplayground_table_format() {
+    let snapshot = get_test_data("uitestingplayground.json");
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--list", "links", "--format", "table", "--limit", "10"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("REF"))
+        .stdout(predicate::str::contains("TYPE"))
+        .stdout(predicate::str::contains("LABEL"));
+}
+
+// -----------------------------------------------------------------------------
+// The Internet (Herokuapp) Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn test_theinternet_summary() {
+    let snapshot = get_test_data("the-internet.json");
+    meyerhold()
+        .arg(&snapshot)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("The Internet"))
+        .stdout(predicate::str::contains("herokuapp"));
+}
+
+#[test]
+fn test_theinternet_list_links() {
+    let snapshot = get_test_data("the-internet.json");
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--list", "links"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("A/B Testing"))
+        .stdout(predicate::str::contains("Checkboxes"));
+}
+
+#[test]
+fn test_theinternet_links_limit() {
+    let snapshot = get_test_data("the-internet.json");
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--list", "links", "--limit", "5"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("... and"));
+}
+
+#[test]
+fn test_theinternet_search_regex() {
+    let snapshot = get_test_data("the-internet.json");
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--search", "Drag.*Drop", "--regex"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Found"));
+}
+
+#[test]
+fn test_theinternet_errors_section() {
+    let snapshot = get_test_data("the-internet.json");
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--section", "errors"])
+        .assert()
+        .success();
+}
+
+// -----------------------------------------------------------------------------
+// Cross-Dataset Consistency Tests
+// -----------------------------------------------------------------------------
+
+#[test]
+fn test_all_datasets_summary_json() {
+    let datasets = vec![
+        "todomvc-react.json",
+        "uitestingplayground.json",
+        "the-internet.json",
+    ];
+
+    for dataset in datasets {
+        let snapshot = get_test_data(dataset);
+        meyerhold()
+            .args([snapshot.to_str().unwrap(), "--format", "json"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("page_url"))
+            .stdout(predicate::str::contains("element_count"));
+    }
+}
+
+#[test]
+fn test_all_datasets_list_all() {
+    let datasets = vec![
+        "todomvc-react.json",
+        "uitestingplayground.json",
+        "the-internet.json",
+    ];
+
+    for dataset in datasets {
+        let snapshot = get_test_data(dataset);
+        meyerhold()
+            .args([snapshot.to_str().unwrap(), "--list", "all", "--format", "json"])
+            .assert()
+            .success();
+    }
+}
+
+#[test]
+fn test_all_datasets_tree_depth() {
+    let datasets = vec![
+        "todomvc-react.json",
+        "uitestingplayground.json",
+        "the-internet.json",
+    ];
+
+    for dataset in datasets {
+        let snapshot = get_test_data(dataset);
+        meyerhold()
+            .args([snapshot.to_str().unwrap(), "--depth", "3"])
+            .assert()
+            .success()
+            .stdout(predicate::str::contains("[ref="));
+    }
+}

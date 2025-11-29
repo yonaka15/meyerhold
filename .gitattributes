@@ -1,0 +1,2 @@
+# Mark testdata as generated files (exclude from GitHub language stats)
+testdata/*.json linguist-generated
