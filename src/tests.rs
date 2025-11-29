@@ -115,3 +115,32 @@ fn test_ref_regex() {
     assert!(REF_REGEX.is_match("[ref=abc-def]"));
     assert!(!REF_REGEX.is_match("[ref=]"));
 }
+
+const BLANK_TABS_SNAPSHOT: &str = r#"### Open tabs
+- 0: (current) [Time Tracker] (https://example.com/)
+- 1: [] (about:blank)
+- 2: [] (about:blank)
+- 3: [] (about:blank)
+
+### Page state
+- Page URL: https://example.com/
+- Page Title: Time Tracker
+- Page Snapshot:
+```yaml
+- generic [ref=e1]
+```
+"#;
+
+#[test]
+fn test_parse_summary_blank_tabs() {
+    let summary = parse_summary(BLANK_TABS_SNAPSHOT);
+    assert_eq!(summary.tab_count, 4);
+    assert_eq!(summary.blank_tab_count, 3);
+}
+
+#[test]
+fn test_parse_summary_no_blank_tabs() {
+    let summary = parse_summary(SAMPLE_SNAPSHOT);
+    assert_eq!(summary.tab_count, 1);
+    assert_eq!(summary.blank_tab_count, 0);
+}

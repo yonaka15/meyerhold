@@ -179,6 +179,7 @@ struct SnapshotSummary {
     page_url: String,
     page_title: String,
     tab_count: usize,
+    blank_tab_count: usize,
     error_count: usize,
     element_count: usize,
 }
@@ -219,6 +220,9 @@ fn main() {
         }
     };
 
+    // Always check for blank tabs (warn on stderr)
+    check_blank_tabs(&snapshot_text);
+
     // Route to appropriate handler
     if let Some(search_pattern) = &args.search {
         handle_search(&snapshot_text, search_pattern, args.regex, &args);
@@ -231,6 +235,23 @@ fn main() {
     } else {
         // Default: show summary
         handle_summary(&snapshot_text, &args);
+    }
+}
+
+/// Check for blank tabs and print warning to stderr
+fn check_blank_tabs(text: &str) {
+    let tab_section = extract_section(text, SECTION_TABS, SECTION_END);
+    let blank_count = tab_section
+        .lines()
+        .filter(|l| l.starts_with("- ") && l.contains("(about:blank)"))
+        .count();
+
+    if blank_count > 0 {
+        eprintln!(
+            "WARNING: {} blank tab(s) detected (about:blank)",
+            blank_count
+        );
+        eprintln!();
     }
 }
 
@@ -268,7 +289,14 @@ fn handle_summary(text: &str, args: &Args) {
             println!("Page URL:   {}", summary.page_url);
             println!("Page Title: {}", summary.page_title);
             println!();
-            println!("Tabs:     {}", summary.tab_count);
+            if summary.blank_tab_count > 0 {
+                println!(
+                    "Tabs:     {} ({} blank)",
+                    summary.tab_count, summary.blank_tab_count
+                );
+            } else {
+                println!("Tabs:     {}", summary.tab_count);
+            }
             println!("Errors:   {}", summary.error_count);
             println!("Elements: {}", summary.element_count);
             println!();
@@ -298,12 +326,15 @@ fn parse_summary(text: &str) -> SnapshotSummary {
 
     // Tab counting from dedicated section
     let tab_section = extract_section(text, SECTION_TABS, SECTION_END);
-    let tab_count = tab_section.lines().filter(|l| l.starts_with("- ")).count();
+    let tab_lines: Vec<&str> = tab_section.lines().filter(|l| l.starts_with("- ")).collect();
+    let tab_count = tab_lines.len();
+    let blank_tab_count = tab_lines.iter().filter(|l| l.contains("(about:blank)")).count();
 
     SnapshotSummary {
         page_url,
         page_title,
         tab_count,
+        blank_tab_count,
         error_count,
         element_count,
     }
