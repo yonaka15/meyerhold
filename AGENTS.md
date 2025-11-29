@@ -14,6 +14,7 @@ Progressive reader for Playwright MCP snapshot JSON files. Parses `.content[0].t
 
 ```bash
 # Get summary (URL, title, element count)
+# Automatically warns if blank tabs (about:blank) detected
 meyerhold snapshot.json
 
 # Check for errors first
@@ -21,6 +22,11 @@ meyerhold snapshot.json --section errors
 
 # List interactive elements
 meyerhold snapshot.json --list all --format table
+```
+
+**Blank Tab Warning**: If blank tabs are detected, a warning is printed to stderr:
+```
+WARNING: 3 blank tab(s) detected (about:blank)
 ```
 
 ### 2. Find Specific Elements
