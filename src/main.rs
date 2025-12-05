@@ -237,6 +237,53 @@ fn handle_summary(mh: &Meyerhold, args: &Args) {
             }
             println!("Errors:   {}", summary.error_count);
             println!("Elements: {}", summary.element_count);
+
+            // Display buttons
+            if !summary.buttons.is_empty() {
+                println!();
+                println!("--- Buttons ({}) ---", summary.buttons.len());
+                for btn in &summary.buttons {
+                    println!("[{}] {}", btn.ref_id, btn.label);
+                }
+            }
+
+            // Display links
+            if !summary.links.is_empty() {
+                println!();
+                println!("--- Links ({}) ---", summary.links.len());
+                for link in &summary.links {
+                    println!("[{}] {}", link.ref_id, link.label);
+                }
+            }
+
+            // Display inputs
+            if !summary.inputs.is_empty() {
+                println!();
+                println!("--- Inputs ({}) ---", summary.inputs.len());
+                for input in &summary.inputs {
+                    println!("[{}] {}", input.ref_id, input.label);
+                }
+            }
+
+            // Display content (headings + text in order)
+            if !summary.content.is_empty() {
+                println!();
+                println!("--- Content ---");
+                for item in &summary.content {
+                    match item {
+                        meyerhold::ContentItem::Heading { label } => {
+                            println!("# {}", label);
+                        }
+                        meyerhold::ContentItem::Text { label } => {
+                            println!("  {}", label);
+                        }
+                    }
+                }
+                if summary.content_truncated {
+                    println!("... (truncated)");
+                }
+            }
+
             println!();
             println!("Use --section <tabs|errors|tree|page> for details");
             println!("Use --list <buttons|links|inputs|all> for elements");
