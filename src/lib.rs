@@ -39,7 +39,7 @@ mod tree;
 pub use elements::{Element, ListType};
 pub use error::MeyerholdError;
 pub use search::SearchResult;
-pub use summary::{ContentItem, SnapshotSummary, SummaryElement, DEFAULT_TEXT_CHAR_LIMIT};
+pub use summary::{ContentItem, SnapshotSummary, DEFAULT_TEXT_CHAR_LIMIT};
 
 use serde_json::Value;
 

@@ -1,7 +1,6 @@
 //! Summary generation for Playwright MCP snapshots.
 
 use crate::constants::*;
-use crate::elements::{extract_elements, Element, ListType};
 use crate::regex::REF_REGEX;
 use serde::Serialize;
 
@@ -11,16 +10,7 @@ pub const DEFAULT_TEXT_CHAR_LIMIT: usize = 20_000;
 /// Default character limit for element labels.
 pub const DEFAULT_LABEL_CHAR_LIMIT: usize = 50;
 
-/// A simplified element representation for summary output.
-#[derive(Debug, Clone, Serialize)]
-pub struct SummaryElement {
-    /// Element reference ID (e.g., "e407")
-    pub ref_id: String,
-    /// Element label/text content
-    pub label: String,
-}
-
-/// Content item representing either a heading or text in page order.
+/// Content item representing any element in page/DOM order.
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type")]
 pub enum ContentItem {
@@ -30,15 +20,15 @@ pub enum ContentItem {
     /// A text element
     #[serde(rename = "text")]
     Text { label: String },
-}
-
-impl From<Element> for SummaryElement {
-    fn from(elem: Element) -> Self {
-        Self {
-            ref_id: elem.ref_id,
-            label: truncate_label(&elem.label, DEFAULT_LABEL_CHAR_LIMIT),
-        }
-    }
+    /// A button element
+    #[serde(rename = "button")]
+    Button { ref_id: String, label: String },
+    /// A link element
+    #[serde(rename = "link")]
+    Link { ref_id: String, label: String },
+    /// An input element (textbox, checkbox, etc.)
+    #[serde(rename = "input")]
+    Input { ref_id: String, label: String },
 }
 
 /// Truncate label at character boundary (UTF-8 safe).
@@ -73,13 +63,7 @@ pub struct SnapshotSummary {
     pub error_count: usize,
     /// Total number of elements with refs
     pub element_count: usize,
-    /// Buttons on the page
-    pub buttons: Vec<SummaryElement>,
-    /// Links on the page
-    pub links: Vec<SummaryElement>,
-    /// Input elements (textbox, checkbox, etc.)
-    pub inputs: Vec<SummaryElement>,
-    /// Page content (headings and text in order)
+    /// Page content (all elements in DOM order)
     pub content: Vec<ContentItem>,
     /// Whether content was truncated due to character limit
     pub content_truncated: bool,
@@ -92,6 +76,8 @@ pub fn parse_summary(text: &str) -> SnapshotSummary {
 
 /// Parse summary from snapshot text with custom character limit for texts.
 pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummary {
+    use crate::regex::REF_REGEX as LINE_REF_REGEX;
+
     let mut page_url = String::new();
     let mut page_title = String::new();
     let mut error_count = 0;
@@ -100,6 +86,15 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
     let mut content_truncated = false;
 
     let element_count = REF_REGEX.find_iter(text).count();
+
+    // Input element types
+    let input_types = [
+        ELEM_TEXTBOX,
+        ELEM_CHECKBOX,
+        ELEM_RADIO,
+        ELEM_COMBOBOX,
+        ELEM_SEARCHBOX,
+    ];
 
     for line in text.lines() {
         if line.starts_with(FIELD_PAGE_URL) {
@@ -113,7 +108,7 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
         let trimmed = line.trim().trim_start_matches("- ");
 
         // Extract heading content
-        if trimmed.starts_with("heading") {
+        if trimmed.starts_with(ELEM_HEADING) {
             if let Some(label) = extract_quoted_content(trimmed) {
                 if !label.is_empty() {
                     let label_len = label.chars().count();
@@ -143,6 +138,51 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                 }
             }
         }
+        // Extract button
+        else if trimmed.starts_with(ELEM_BUTTON) {
+            if let Some(caps) = LINE_REF_REGEX.captures(line) {
+                let ref_id = caps.get(1).unwrap().as_str().to_string();
+                let label = extract_quoted_content(trimmed).unwrap_or_default();
+                let label = truncate_label(&label, DEFAULT_LABEL_CHAR_LIMIT);
+                let label_len = label.chars().count();
+                if total_chars + label_len <= char_limit {
+                    total_chars += label_len;
+                    content.push(ContentItem::Button { ref_id, label });
+                } else {
+                    content_truncated = true;
+                }
+            }
+        }
+        // Extract link
+        else if trimmed.starts_with(ELEM_LINK) {
+            if let Some(caps) = LINE_REF_REGEX.captures(line) {
+                let ref_id = caps.get(1).unwrap().as_str().to_string();
+                let label = extract_quoted_content(trimmed).unwrap_or_default();
+                let label = truncate_label(&label, DEFAULT_LABEL_CHAR_LIMIT);
+                let label_len = label.chars().count();
+                if total_chars + label_len <= char_limit {
+                    total_chars += label_len;
+                    content.push(ContentItem::Link { ref_id, label });
+                } else {
+                    content_truncated = true;
+                }
+            }
+        }
+        // Extract input elements
+        else if input_types.iter().any(|&t| trimmed.starts_with(t)) {
+            if let Some(caps) = LINE_REF_REGEX.captures(line) {
+                let ref_id = caps.get(1).unwrap().as_str().to_string();
+                let label = extract_quoted_content(trimmed).unwrap_or_default();
+                let label = truncate_label(&label, DEFAULT_LABEL_CHAR_LIMIT);
+                let label_len = label.chars().count();
+                if total_chars + label_len <= char_limit {
+                    total_chars += label_len;
+                    content.push(ContentItem::Input { ref_id, label });
+                } else {
+                    content_truncated = true;
+                }
+            }
+        }
     }
 
     // Tab counting from dedicated section
@@ -154,20 +194,6 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
         .filter(|l| l.contains("(about:blank)"))
         .count();
 
-    // Extract interactive elements
-    let buttons: Vec<SummaryElement> = extract_elements(text, ListType::Buttons)
-        .into_iter()
-        .map(SummaryElement::from)
-        .collect();
-    let links: Vec<SummaryElement> = extract_elements(text, ListType::Links)
-        .into_iter()
-        .map(SummaryElement::from)
-        .collect();
-    let inputs: Vec<SummaryElement> = extract_elements(text, ListType::Inputs)
-        .into_iter()
-        .map(SummaryElement::from)
-        .collect();
-
     SnapshotSummary {
         page_url,
         page_title,
@@ -175,9 +201,6 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
         blank_tab_count,
         error_count,
         element_count,
-        buttons,
-        links,
-        inputs,
         content,
         content_truncated,
     }

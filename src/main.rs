@@ -238,37 +238,10 @@ fn handle_summary(mh: &Meyerhold, args: &Args) {
             println!("Errors:   {}", summary.error_count);
             println!("Elements: {}", summary.element_count);
 
-            // Display buttons
-            if !summary.buttons.is_empty() {
-                println!();
-                println!("--- Buttons ({}) ---", summary.buttons.len());
-                for btn in &summary.buttons {
-                    println!("[{}] {}", btn.ref_id, btn.label);
-                }
-            }
-
-            // Display links
-            if !summary.links.is_empty() {
-                println!();
-                println!("--- Links ({}) ---", summary.links.len());
-                for link in &summary.links {
-                    println!("[{}] {}", link.ref_id, link.label);
-                }
-            }
-
-            // Display inputs
-            if !summary.inputs.is_empty() {
-                println!();
-                println!("--- Inputs ({}) ---", summary.inputs.len());
-                for input in &summary.inputs {
-                    println!("[{}] {}", input.ref_id, input.label);
-                }
-            }
-
-            // Display content (headings + text in order)
+            // Display all content in DOM order
             if !summary.content.is_empty() {
                 println!();
-                println!("--- Content ---");
+                println!("--- Content (DOM order) ---");
                 for item in &summary.content {
                     match item {
                         meyerhold::ContentItem::Heading { label } => {
@@ -276,6 +249,15 @@ fn handle_summary(mh: &Meyerhold, args: &Args) {
                         }
                         meyerhold::ContentItem::Text { label } => {
                             println!("  {}", label);
+                        }
+                        meyerhold::ContentItem::Button { ref_id, label } => {
+                            println!("[{}] button: {}", ref_id, label);
+                        }
+                        meyerhold::ContentItem::Link { ref_id, label } => {
+                            println!("[{}] link: {}", ref_id, label);
+                        }
+                        meyerhold::ContentItem::Input { ref_id, label } => {
+                            println!("[{}] input: {}", ref_id, label);
                         }
                     }
                 }
