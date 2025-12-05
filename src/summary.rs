@@ -4,6 +4,50 @@ use crate::constants::*;
 use crate::regex::REF_REGEX;
 use serde::Serialize;
 
+/// Default character limit for text preview.
+pub const DEFAULT_TEXT_CHAR_LIMIT: usize = 20_000;
+
+/// Default character limit for element labels.
+pub const DEFAULT_LABEL_CHAR_LIMIT: usize = 50;
+
+/// Content item representing any element in page/DOM order.
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type")]
+pub enum ContentItem {
+    /// A heading element
+    #[serde(rename = "heading")]
+    Heading { label: String },
+    /// A text element
+    #[serde(rename = "text")]
+    Text { label: String },
+    /// A button element
+    #[serde(rename = "button")]
+    Button { ref_id: String, label: String },
+    /// A link element
+    #[serde(rename = "link")]
+    Link { ref_id: String, label: String },
+    /// An input element (textbox, checkbox, etc.)
+    #[serde(rename = "input")]
+    Input { ref_id: String, label: String },
+}
+
+/// Truncate label at character boundary (UTF-8 safe).
+fn truncate_label(s: &str, max_chars: usize) -> String {
+    let char_count = s.chars().count();
+    if char_count <= max_chars {
+        return s.to_string();
+    }
+
+    let truncate_at = max_chars.saturating_sub(3);
+    let end_pos = s
+        .char_indices()
+        .nth(truncate_at)
+        .map(|(pos, _)| pos)
+        .unwrap_or(s.len());
+
+    format!("{}...", &s[..end_pos])
+}
+
 /// Summary information extracted from a snapshot.
 #[derive(Debug, Clone, Serialize)]
 pub struct SnapshotSummary {
@@ -19,15 +63,38 @@ pub struct SnapshotSummary {
     pub error_count: usize,
     /// Total number of elements with refs
     pub element_count: usize,
+    /// Page content (all elements in DOM order)
+    pub content: Vec<ContentItem>,
+    /// Whether content was truncated due to character limit
+    pub content_truncated: bool,
 }
 
 /// Parse summary from snapshot text.
 pub fn parse_summary(text: &str) -> SnapshotSummary {
+    parse_summary_with_limit(text, DEFAULT_TEXT_CHAR_LIMIT)
+}
+
+/// Parse summary from snapshot text with custom character limit for texts.
+pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummary {
+    use crate::regex::REF_REGEX as LINE_REF_REGEX;
+
     let mut page_url = String::new();
     let mut page_title = String::new();
     let mut error_count = 0;
+    let mut content = Vec::new();
+    let mut total_chars = 0;
+    let mut content_truncated = false;
 
     let element_count = REF_REGEX.find_iter(text).count();
+
+    // Input element types
+    let input_types = [
+        ELEM_TEXTBOX,
+        ELEM_CHECKBOX,
+        ELEM_RADIO,
+        ELEM_COMBOBOX,
+        ELEM_SEARCHBOX,
+    ];
 
     for line in text.lines() {
         if line.starts_with(FIELD_PAGE_URL) {
@@ -36,6 +103,85 @@ pub fn parse_summary(text: &str) -> SnapshotSummary {
             page_title = line.trim_start_matches(FIELD_PAGE_TITLE).trim().to_string();
         } else if line.contains(MARKER_ERROR) || line.contains(MARKER_WARNING) {
             error_count += 1;
+        }
+
+        let trimmed = line.trim().trim_start_matches("- ");
+
+        // Extract heading content
+        if trimmed.starts_with(ELEM_HEADING) {
+            if let Some(label) = extract_quoted_content(trimmed) {
+                if !label.is_empty() {
+                    let label_len = label.chars().count();
+                    if total_chars + label_len <= char_limit {
+                        total_chars += label_len;
+                        content.push(ContentItem::Heading { label });
+                    } else {
+                        content_truncated = true;
+                    }
+                }
+            }
+        }
+        // Extract text content
+        else if trimmed.starts_with("text:") {
+            let label = trimmed
+                .trim_start_matches("text:")
+                .trim()
+                .trim_matches('"')
+                .to_string();
+            if !label.is_empty() {
+                let label_len = label.chars().count();
+                if total_chars + label_len <= char_limit {
+                    total_chars += label_len;
+                    content.push(ContentItem::Text { label });
+                } else {
+                    content_truncated = true;
+                }
+            }
+        }
+        // Extract button
+        else if trimmed.starts_with(ELEM_BUTTON) {
+            if let Some(caps) = LINE_REF_REGEX.captures(line) {
+                let ref_id = caps.get(1).unwrap().as_str().to_string();
+                let label = extract_quoted_content(trimmed).unwrap_or_default();
+                let label = truncate_label(&label, DEFAULT_LABEL_CHAR_LIMIT);
+                let label_len = label.chars().count();
+                if total_chars + label_len <= char_limit {
+                    total_chars += label_len;
+                    content.push(ContentItem::Button { ref_id, label });
+                } else {
+                    content_truncated = true;
+                }
+            }
+        }
+        // Extract link
+        else if trimmed.starts_with(ELEM_LINK) {
+            if let Some(caps) = LINE_REF_REGEX.captures(line) {
+                let ref_id = caps.get(1).unwrap().as_str().to_string();
+                let label = extract_quoted_content(trimmed).unwrap_or_default();
+                let label = truncate_label(&label, DEFAULT_LABEL_CHAR_LIMIT);
+                let label_len = label.chars().count();
+                if total_chars + label_len <= char_limit {
+                    total_chars += label_len;
+                    content.push(ContentItem::Link { ref_id, label });
+                } else {
+                    content_truncated = true;
+                }
+            }
+        }
+        // Extract input elements
+        else if input_types.iter().any(|&t| trimmed.starts_with(t)) {
+            if let Some(caps) = LINE_REF_REGEX.captures(line) {
+                let ref_id = caps.get(1).unwrap().as_str().to_string();
+                let label = extract_quoted_content(trimmed).unwrap_or_default();
+                let label = truncate_label(&label, DEFAULT_LABEL_CHAR_LIMIT);
+                let label_len = label.chars().count();
+                if total_chars + label_len <= char_limit {
+                    total_chars += label_len;
+                    content.push(ContentItem::Input { ref_id, label });
+                } else {
+                    content_truncated = true;
+                }
+            }
         }
     }
 
@@ -55,7 +201,22 @@ pub fn parse_summary(text: &str) -> SnapshotSummary {
         blank_tab_count,
         error_count,
         element_count,
+        content,
+        content_truncated,
     }
+}
+
+/// Extract quoted content from a line (e.g., `heading "Title"` -> `Title`).
+fn extract_quoted_content(line: &str) -> Option<String> {
+    // Find content between quotes
+    if let Some(start) = line.find('"') {
+        if let Some(end) = line.rfind('"') {
+            if start < end {
+                return Some(line[start + 1..end].to_string());
+            }
+        }
+    }
+    None
 }
 
 /// Extract a section from snapshot text.

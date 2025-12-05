@@ -237,6 +237,35 @@ fn handle_summary(mh: &Meyerhold, args: &Args) {
             }
             println!("Errors:   {}", summary.error_count);
             println!("Elements: {}", summary.element_count);
+
+            // Display all content in DOM order
+            if !summary.content.is_empty() {
+                println!();
+                println!("--- Content (DOM order) ---");
+                for item in &summary.content {
+                    match item {
+                        meyerhold::ContentItem::Heading { label } => {
+                            println!("# {}", label);
+                        }
+                        meyerhold::ContentItem::Text { label } => {
+                            println!("  {}", label);
+                        }
+                        meyerhold::ContentItem::Button { ref_id, label } => {
+                            println!("[{}] button: {}", ref_id, label);
+                        }
+                        meyerhold::ContentItem::Link { ref_id, label } => {
+                            println!("[{}] link: {}", ref_id, label);
+                        }
+                        meyerhold::ContentItem::Input { ref_id, label } => {
+                            println!("[{}] input: {}", ref_id, label);
+                        }
+                    }
+                }
+                if summary.content_truncated {
+                    println!("... (truncated)");
+                }
+            }
+
             println!();
             println!("Use --section <tabs|errors|tree|page> for details");
             println!("Use --list <buttons|links|inputs|all> for elements");
