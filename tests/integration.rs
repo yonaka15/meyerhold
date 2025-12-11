@@ -532,3 +532,87 @@ fn test_all_datasets_tree_depth() {
             .stdout(predicate::str::contains("[ref="));
     }
 }
+
+// =============================================================================
+// Clickable Elements Tests
+// =============================================================================
+
+#[test]
+fn test_list_clickable() {
+    let snapshot = get_test_snapshot();
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--list", "clickable"])
+        .assert()
+        .success();
+}
+
+#[test]
+fn test_list_clickable_table_format() {
+    let snapshot = get_test_data("the-internet.json");
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--list", "clickable", "--format", "table"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("REF"))
+        .stdout(predicate::str::contains("TYPE"))
+        .stdout(predicate::str::contains("LABEL"));
+}
+
+#[test]
+fn test_list_clickable_json_format() {
+    let snapshot = get_test_data("the-internet.json");
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--list", "clickable", "--format", "json"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("ref_id"))
+        .stdout(predicate::str::contains("element_type"));
+}
+
+#[test]
+fn test_summary_shows_clickable_count() {
+    let snapshot = get_test_data("the-internet.json");
+    meyerhold()
+        .arg(&snapshot)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Clickable:"));
+}
+
+#[test]
+fn test_summary_json_includes_clickable() {
+    let snapshot = get_test_data("the-internet.json");
+    meyerhold()
+        .args([snapshot.to_str().unwrap(), "--format", "json"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"clickable\""))
+        .stdout(predicate::str::contains("\"clickable_disabled\""));
+}
+
+#[test]
+fn test_summary_shows_next_hint() {
+    let snapshot = get_test_snapshot();
+    meyerhold()
+        .arg(&snapshot)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Next: --list clickable"));
+}
+
+#[test]
+fn test_all_datasets_list_clickable() {
+    let datasets = vec![
+        "todomvc-react.json",
+        "uitestingplayground.json",
+        "the-internet.json",
+    ];
+
+    for dataset in datasets {
+        let snapshot = get_test_data(dataset);
+        meyerhold()
+            .args([snapshot.to_str().unwrap(), "--list", "clickable"])
+            .assert()
+            .success();
+    }
+}

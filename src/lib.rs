@@ -36,7 +36,7 @@ mod summary;
 mod tree;
 
 // Public re-exports
-pub use elements::{Element, ListType};
+pub use elements::{ClickableStats, Element, ListType};
 pub use error::MeyerholdError;
 pub use search::SearchResult;
 pub use summary::{ContentItem, SnapshotSummary, DEFAULT_TEXT_CHAR_LIMIT};
@@ -186,6 +186,13 @@ impl Meyerhold {
     /// Count blank tabs (about:blank) in the snapshot.
     pub fn blank_tab_count(&self) -> usize {
         summary::count_blank_tabs(&self.snapshot_text)
+    }
+
+    /// Get statistics about clickable elements.
+    ///
+    /// Returns total clickable count and disabled count.
+    pub fn clickable_stats(&self) -> ClickableStats {
+        elements::count_clickable(&self.snapshot_text)
     }
 }
 

@@ -82,6 +82,8 @@ enum CliListType {
     Images,
     Text,
     All,
+    /// Clickable elements only (excludes disabled)
+    Clickable,
 }
 
 impl From<&CliListType> for ListType {
@@ -94,6 +96,7 @@ impl From<&CliListType> for ListType {
             CliListType::Images => ListType::Images,
             CliListType::Text => ListType::Text,
             CliListType::All => ListType::All,
+            CliListType::Clickable => ListType::Clickable,
         }
     }
 }
@@ -216,10 +219,24 @@ fn print_json<T: Serialize>(value: &T) {
 
 fn handle_summary(mh: &Meyerhold, args: &Args) {
     let summary = mh.summary();
+    let clickable = mh.clickable_stats();
 
     match args.format {
         OutputFormat::Json => {
-            print_json(&summary);
+            // Include clickable stats in JSON output
+            let json = serde_json::json!({
+                "page_url": summary.page_url,
+                "page_title": summary.page_title,
+                "tab_count": summary.tab_count,
+                "blank_tab_count": summary.blank_tab_count,
+                "error_count": summary.error_count,
+                "element_count": summary.element_count,
+                "clickable": clickable.total,
+                "clickable_disabled": clickable.disabled_count,
+                "content": summary.content,
+                "content_truncated": summary.content_truncated,
+            });
+            print_json(&json);
         }
         _ => {
             println!("=== Snapshot Summary ===");
@@ -229,14 +246,22 @@ fn handle_summary(mh: &Meyerhold, args: &Args) {
             println!();
             if summary.blank_tab_count > 0 {
                 println!(
-                    "Tabs:     {} ({} blank)",
+                    "Tabs:      {} ({} blank)",
                     summary.tab_count, summary.blank_tab_count
                 );
             } else {
-                println!("Tabs:     {}", summary.tab_count);
+                println!("Tabs:      {}", summary.tab_count);
             }
-            println!("Errors:   {}", summary.error_count);
-            println!("Elements: {}", summary.element_count);
+            println!("Errors:    {}", summary.error_count);
+            println!("Elements:  {}", summary.element_count);
+            if clickable.disabled_count > 0 {
+                println!(
+                    "Clickable: {} ({} disabled excluded)",
+                    clickable.total, clickable.disabled_count
+                );
+            } else {
+                println!("Clickable: {}", clickable.total);
+            }
 
             // Display all content in DOM order
             if !summary.content.is_empty() {
@@ -267,9 +292,9 @@ fn handle_summary(mh: &Meyerhold, args: &Args) {
             }
 
             println!();
-            println!("Use --section <tabs|errors|tree|page> for details");
-            println!("Use --list <buttons|links|inputs|all> for elements");
-            println!("Use --depth N for tree navigation");
+            println!("Next: --list clickable  (show interactive elements)");
+            println!("      --section <tabs|errors|tree|page> for details");
+            println!("      --search \"pattern\" to find specific content");
         }
     }
 }
