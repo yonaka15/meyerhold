@@ -9,7 +9,9 @@ Parses the JSON output from `browser_snapshot` tool, which wraps [Playwright](ht
 
 ## Features
 
-- **Summary view** - Quick overview of page URL, title, tabs, errors, and element count
+- **Summary view** - Quick overview of page URL, title, tabs, errors, element count, and clickable elements
+- **Content preview** - DOM-ordered view of headings, text, buttons, links, and inputs
+- **Clickable elements** - List interactive elements with disabled filtering
 - **Section extraction** - View tabs, errors, page state, or accessibility tree
 - **Element listing** - List buttons, links, inputs, headings, images by type
 - **Tree navigation** - Explore DOM structure with depth control
@@ -34,6 +36,9 @@ cargo install --path .
 # Summary view (default)
 meyerhold snapshot.json
 
+# List clickable elements (excludes disabled)
+meyerhold snapshot.json --list clickable
+
 # Show specific sections
 meyerhold snapshot.json --section tabs
 meyerhold snapshot.json --section errors
@@ -55,7 +60,7 @@ meyerhold snapshot.json --search "Sign in"
 meyerhold snapshot.json --search "button.*submit" --regex
 
 # Output formats
-meyerhold snapshot.json --list buttons --format table
+meyerhold snapshot.json --list clickable --format table
 meyerhold snapshot.json --list buttons --format json
 ```
 
@@ -67,14 +72,34 @@ meyerhold snapshot.json --list buttons --format json
 Page URL:   https://example.com/
 Page Title: Example Domain
 
-Tabs:     1
-Errors:   0
-Elements: 42
+Tabs:      1
+Errors:    0
+Elements:  150
+Clickable: 42 (3 disabled excluded)
 
-Use --section <tabs|errors|tree|page> for details
-Use --list <buttons|links|inputs|all> for elements
-Use --depth N for tree navigation
+--- Content (DOM order) ---
+# Welcome to Example
+  This is an example page.
+[e12] button: Sign In
+[e15] link: Learn More
+[e23] input: Email address
+... (truncated)
+
+Next: --list clickable  (show interactive elements)
+      --section <tabs|errors|tree|page> for details
+      --search "pattern" to find specific content
 ```
+
+## Clickable Elements
+
+The `--list clickable` option shows all interactive elements that can be clicked:
+
+- button
+- link
+- textbox, checkbox, radio, combobox, searchbox
+- tab
+
+Elements with `[disabled]` attribute are automatically excluded.
 
 ## Development
 
