@@ -14,6 +14,9 @@ pub enum ListType {
     Images,
     Text,
     All,
+    /// Clickable elements only (buttons, links, inputs, tabs, combobox).
+    /// Excludes elements with [disabled] attribute.
+    Clickable,
 }
 
 /// An interactive element extracted from snapshot.
@@ -27,6 +30,26 @@ pub struct Element {
     pub label: String,
     /// Nesting depth in the tree
     pub depth: usize,
+    /// Whether the element is disabled
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub disabled: bool,
+}
+
+/// Clickable element types (can be interacted with via click).
+const CLICKABLE_TYPES: &[&str] = &[
+    ELEM_BUTTON,
+    ELEM_LINK,
+    ELEM_TEXTBOX,
+    ELEM_CHECKBOX,
+    ELEM_RADIO,
+    ELEM_COMBOBOX,
+    ELEM_SEARCHBOX,
+    ELEM_TAB,
+];
+
+/// Check if line contains [disabled] attribute.
+fn is_disabled(line: &str) -> bool {
+    line.contains("[disabled]")
 }
 
 /// Extract elements of specified type from snapshot text.
@@ -58,9 +81,11 @@ pub fn extract_elements(text: &str, list_type: ListType) -> Vec<Element> {
             ELEM_TAB,
             ELEM_OPTION,
         ],
+        ListType::Clickable => CLICKABLE_TYPES,
     };
 
     let extract_text_only = matches!(list_type, ListType::Text);
+    let filter_disabled = matches!(list_type, ListType::Clickable);
 
     for line in text.lines() {
         let trimmed = line.trim().trim_start_matches("- ");
@@ -80,6 +105,7 @@ pub fn extract_elements(text: &str, list_type: ListType) -> Vec<Element> {
                         element_type: "text".to_string(),
                         label: content,
                         depth: indent / 2,
+                        disabled: false,
                     });
                 }
             }
@@ -92,6 +118,13 @@ pub fn extract_elements(text: &str, list_type: ListType) -> Vec<Element> {
 
         if let Some(&elem_type) = matched_type {
             if let Some(caps) = REF_REGEX.captures(line) {
+                let disabled = is_disabled(line);
+
+                // Skip disabled elements when filtering for clickable
+                if filter_disabled && disabled {
+                    continue;
+                }
+
                 let ref_id = caps.get(1).unwrap().as_str().to_string();
                 let label = extract_label(trimmed);
                 let indent = line.len() - line.trim_start().len();
@@ -102,12 +135,51 @@ pub fn extract_elements(text: &str, list_type: ListType) -> Vec<Element> {
                     element_type: elem_type.to_string(),
                     label,
                     depth,
+                    disabled,
                 });
             }
         }
     }
 
     elements
+}
+
+/// Statistics about clickable elements.
+#[derive(Debug, Clone, Serialize)]
+pub struct ClickableStats {
+    /// Total clickable elements (excluding disabled)
+    pub total: usize,
+    /// Number of disabled elements that would otherwise be clickable
+    pub disabled_count: usize,
+}
+
+/// Count clickable elements in snapshot text.
+pub fn count_clickable(text: &str) -> ClickableStats {
+    let mut total = 0;
+    let mut disabled_count = 0;
+
+    for line in text.lines() {
+        let trimmed = line.trim().trim_start_matches("- ");
+
+        let is_clickable_type = CLICKABLE_TYPES
+            .iter()
+            .any(|&p| trimmed.starts_with(p) || trimmed.starts_with(&format!("'{}", p)));
+
+        if is_clickable_type {
+            if crate::regex::REF_REGEX.captures(line).is_some() {
+                if is_disabled(line) {
+                    disabled_count += 1;
+                } else {
+                    total += 1;
+                }
+            }
+        }
+    }
+
+    ClickableStats {
+        total,
+        disabled_count,
+    }
 }
 
 /// Extract label from element line.
