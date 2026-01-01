@@ -195,7 +195,10 @@ fn extract_content_item(line: &str) -> Option<ContentItem> {
     // Text element
     else if trimmed.starts_with("text:") {
         let label = trimmed.trim_start_matches("text:").trim().trim_matches('"');
-        if !label.is_empty() {
+        // Check if label has meaningful content (at least one alphanumeric char)
+        let has_content = label.chars().any(|c| c.is_alphanumeric());
+        // Skip only if BOTH blank AND no ref
+        if has_content || !ref_id.is_empty() {
             return Some(ContentItem::Text {
                 ref_id,
                 label: label.to_string(),
