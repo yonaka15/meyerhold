@@ -183,6 +183,13 @@ impl Meyerhold {
         tree::get_tree(&self.snapshot_text, depth, from_ref)
     }
 
+    /// Get compact tree with generic elements collapsed to depth markers.
+    ///
+    /// Generic elements are replaced with `>` depth prefixes to reduce output size.
+    pub fn compact_tree(&self) -> String {
+        tree::get_compact_tree(&self.snapshot_text)
+    }
+
     /// Count blank tabs (about:blank) in the snapshot.
     pub fn blank_tab_count(&self) -> usize {
         summary::count_blank_tabs(&self.snapshot_text)

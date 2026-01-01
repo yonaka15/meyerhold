@@ -13,7 +13,7 @@ Progressive reader for Playwright MCP snapshot JSON files. Parses `.content[0].t
 ### 1. Quick Page Analysis
 
 ```bash
-# Get summary (URL, title, element count, clickable count)
+# Get summary with full tree (URL, title, counts, and page structure)
 # Automatically warns if blank tabs (about:blank) detected
 meyerhold snapshot.json
 
@@ -131,7 +131,7 @@ once_cell = "1.19"
 
 | Command | Purpose |
 |---------|---------|
-| `meyerhold FILE` | Summary view (includes clickable count) |
+| `meyerhold FILE` | Summary with full tree |
 | `--list clickable` | Clickable elements only (excludes disabled) |
 | `--list buttons\|links\|inputs\|all` | List elements by type |
 | `--section tabs\|errors\|tree\|page` | Show section |

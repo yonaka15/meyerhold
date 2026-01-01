@@ -16,10 +16,10 @@ pub const DEFAULT_LABEL_CHAR_LIMIT: usize = 50;
 pub enum ContentItem {
     /// A heading element
     #[serde(rename = "heading")]
-    Heading { label: String },
+    Heading { ref_id: String, label: String },
     /// A text element
     #[serde(rename = "text")]
-    Text { label: String },
+    Text { ref_id: String, label: String },
     /// A button element
     #[serde(rename = "button")]
     Button { ref_id: String, label: String },
@@ -111,10 +111,14 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
         if trimmed.starts_with(ELEM_HEADING) {
             if let Some(label) = extract_quoted_content(trimmed) {
                 if !label.is_empty() {
+                    let ref_id = LINE_REF_REGEX
+                        .captures(line)
+                        .map(|c| c.get(1).unwrap().as_str().to_string())
+                        .unwrap_or_default();
                     let label_len = label.chars().count();
                     if total_chars + label_len <= char_limit {
                         total_chars += label_len;
-                        content.push(ContentItem::Heading { label });
+                        content.push(ContentItem::Heading { ref_id, label });
                     } else {
                         content_truncated = true;
                     }
@@ -129,12 +133,62 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                 .trim_matches('"')
                 .to_string();
             if !label.is_empty() {
+                // text: elements typically don't have ref
+                let ref_id = LINE_REF_REGEX
+                    .captures(line)
+                    .map(|c| c.get(1).unwrap().as_str().to_string())
+                    .unwrap_or_default();
                 let label_len = label.chars().count();
                 if total_chars + label_len <= char_limit {
                     total_chars += label_len;
-                    content.push(ContentItem::Text { label });
+                    content.push(ContentItem::Text { ref_id, label });
                 } else {
                     content_truncated = true;
+                }
+            }
+        }
+        // Extract generic with text content (e.g., "generic [ref=e14]: ⌥")
+        else if trimmed.starts_with("generic") && trimmed.contains(':') {
+            if let Some(colon_pos) = trimmed.find(':') {
+                let after_colon = trimmed[colon_pos + 1..].trim();
+                // Only extract if there's actual text content (not just whitespace or children)
+                if !after_colon.is_empty() && !after_colon.starts_with('-') {
+                    let label = after_colon.trim_matches('"').to_string();
+                    if !label.is_empty() {
+                        let ref_id = LINE_REF_REGEX
+                            .captures(line)
+                            .map(|c| c.get(1).unwrap().as_str().to_string())
+                            .unwrap_or_default();
+                        let label_len = label.chars().count();
+                        if total_chars + label_len <= char_limit {
+                            total_chars += label_len;
+                            content.push(ContentItem::Text { ref_id, label });
+                        } else {
+                            content_truncated = true;
+                        }
+                    }
+                }
+            }
+        }
+        // Extract paragraph with inline text content
+        else if trimmed.starts_with("paragraph") && trimmed.contains(':') {
+            if let Some(colon_pos) = trimmed.find(':') {
+                let after_colon = trimmed[colon_pos + 1..].trim();
+                if !after_colon.is_empty() && !after_colon.starts_with('-') {
+                    let label = after_colon.to_string();
+                    if !label.is_empty() {
+                        let ref_id = LINE_REF_REGEX
+                            .captures(line)
+                            .map(|c| c.get(1).unwrap().as_str().to_string())
+                            .unwrap_or_default();
+                        let label_len = label.chars().count();
+                        if total_chars + label_len <= char_limit {
+                            total_chars += label_len;
+                            content.push(ContentItem::Text { ref_id, label });
+                        } else {
+                            content_truncated = true;
+                        }
+                    }
                 }
             }
         }

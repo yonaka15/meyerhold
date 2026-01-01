@@ -223,7 +223,6 @@ fn handle_summary(mh: &Meyerhold, args: &Args) {
 
     match args.format {
         OutputFormat::Json => {
-            // Include clickable stats in JSON output
             let json = serde_json::json!({
                 "page_url": summary.page_url,
                 "page_title": summary.page_title,
@@ -263,38 +262,63 @@ fn handle_summary(mh: &Meyerhold, args: &Args) {
                 println!("Clickable: {}", clickable.total);
             }
 
-            // Display all content in DOM order
+            println!();
+            println!("Next: --depth N  (show tree structure)");
+            println!("      --list clickable  (interactive elements only)");
+            println!("      --search \"pattern\" to find specific content");
+
+            // Display content (text, links, buttons, inputs) - flat list
             if !summary.content.is_empty() {
                 println!();
-                println!("--- Content (DOM order) ---");
-                for item in &summary.content {
+                println!("--- Content ---");
+                let limit = args.limit.unwrap_or(usize::MAX);
+                for (i, item) in summary.content.iter().enumerate() {
+                    if i >= limit {
+                        println!("... (truncated, use --limit to show more)");
+                        break;
+                    }
                     match item {
-                        meyerhold::ContentItem::Heading { label } => {
-                            println!("# {}", label);
+                        meyerhold::ContentItem::Heading { ref_id, label } => {
+                            if ref_id.is_empty() {
+                                println!("heading: {}", label);
+                            } else {
+                                println!("heading: {} [ref={}]", label, ref_id);
+                            }
                         }
-                        meyerhold::ContentItem::Text { label } => {
-                            println!("  {}", label);
+                        meyerhold::ContentItem::Text { ref_id, label } => {
+                            if ref_id.is_empty() {
+                                println!("text: {}", label);
+                            } else {
+                                println!("text: {} [ref={}]", label, ref_id);
+                            }
                         }
                         meyerhold::ContentItem::Button { ref_id, label } => {
-                            println!("[{}] button: {}", ref_id, label);
+                            if ref_id.is_empty() {
+                                println!("button: {}", label);
+                            } else {
+                                println!("button: {} [ref={}]", label, ref_id);
+                            }
                         }
                         meyerhold::ContentItem::Link { ref_id, label } => {
-                            println!("[{}] link: {}", ref_id, label);
+                            if ref_id.is_empty() {
+                                println!("link: {}", label);
+                            } else {
+                                println!("link: {} [ref={}]", label, ref_id);
+                            }
                         }
                         meyerhold::ContentItem::Input { ref_id, label } => {
-                            println!("[{}] input: {}", ref_id, label);
+                            if ref_id.is_empty() {
+                                println!("input: {}", label);
+                            } else {
+                                println!("input: {} [ref={}]", label, ref_id);
+                            }
                         }
                     }
                 }
                 if summary.content_truncated {
-                    println!("... (truncated)");
+                    println!("... (content truncated)");
                 }
             }
-
-            println!();
-            println!("Next: --list clickable  (show interactive elements)");
-            println!("      --section <tabs|errors|tree|page> for details");
-            println!("      --search \"pattern\" to find specific content");
         }
     }
 }

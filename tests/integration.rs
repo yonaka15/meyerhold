@@ -597,7 +597,7 @@ fn test_summary_shows_next_hint() {
         .arg(&snapshot)
         .assert()
         .success()
-        .stdout(predicate::str::contains("Next: --list clickable"));
+        .stdout(predicate::str::contains("Next: --depth N"));
 }
 
 #[test]
