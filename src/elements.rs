@@ -125,7 +125,7 @@ pub fn extract_elements(text: &str, list_type: ListType) -> Vec<Element> {
                     continue;
                 }
 
-                let ref_id = caps.get(1).unwrap().as_str().to_string();
+                let ref_id = caps.get(1).map(|m| m.as_str().to_string()).unwrap_or_default();
                 let label = extract_label(trimmed);
                 let indent = line.len() - line.trim_start().len();
                 let depth = indent / 2;

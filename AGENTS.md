@@ -13,7 +13,7 @@ Progressive reader for Playwright MCP snapshot JSON files. Parses `.content[0].t
 ### 1. Quick Page Analysis
 
 ```bash
-# Get summary (URL, title, element count, clickable count)
+# Get summary with full tree (URL, title, counts, and page structure)
 # Automatically warns if blank tabs (about:blank) detected
 meyerhold snapshot.json
 
@@ -55,6 +55,9 @@ meyerhold snapshot.json --depth 2
 
 # Subtree from specific ref
 meyerhold snapshot.json --depth 3 --from e407
+
+# View specific ref (path to ref + flat content below)
+meyerhold snapshot.json --view e407
 ```
 
 ### 4. Export for Further Processing
@@ -124,18 +127,19 @@ serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 regex = "1.10"
 clap = { version = "4", features = ["derive"] }
-once_cell = "1.19"
+thiserror = "1.0"
 ```
 
 ## Quick Reference
 
 | Command | Purpose |
 |---------|---------|
-| `meyerhold FILE` | Summary view (includes clickable count) |
+| `meyerhold FILE` | Summary with full tree |
 | `--list clickable` | Clickable elements only (excludes disabled) |
 | `--list buttons\|links\|inputs\|all` | List elements by type |
 | `--section tabs\|errors\|tree\|page` | Show section |
 | `--depth N` | Tree navigation |
+| `--view REF` | Path to ref + flat content below |
 | `--search "pattern"` | Find text |
 | `--search "pattern" --regex` | Regex search |
 | `--format json\|table\|text` | Output format |
