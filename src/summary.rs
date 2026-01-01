@@ -132,12 +132,14 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                 .trim()
                 .trim_matches('"')
                 .to_string();
-            if !label.is_empty() {
-                // text: elements typically don't have ref
-                let ref_id = LINE_REF_REGEX
-                    .captures(line)
-                    .and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
-                    .unwrap_or_default();
+            let ref_id = LINE_REF_REGEX
+                .captures(line)
+                .and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
+                .unwrap_or_default();
+            // Check if label has meaningful content (at least one alphanumeric char)
+            let has_content = label.chars().any(|c| c.is_alphanumeric());
+            // Skip only if BOTH blank AND no ref
+            if has_content || !ref_id.is_empty() {
                 let label_len = label.chars().count();
                 if total_chars + label_len <= char_limit {
                     total_chars += label_len;
