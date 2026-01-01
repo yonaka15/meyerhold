@@ -184,13 +184,6 @@ impl Meyerhold {
         tree::get_tree(&self.snapshot_text, depth, from_ref)
     }
 
-    /// Get compact tree with generic elements collapsed to depth markers.
-    ///
-    /// Generic elements are replaced with `>` depth prefixes to reduce output size.
-    pub fn compact_tree(&self) -> String {
-        tree::get_compact_tree(&self.snapshot_text)
-    }
-
     /// View a specific ref: show path to it and flat content below.
     ///
     /// Returns `Some(ViewResult)` with the hierarchy path and flat content
