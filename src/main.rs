@@ -18,6 +18,9 @@
 //! meyerhold snapshot.json --depth 2        # Top 2 levels
 //! meyerhold snapshot.json --depth 3 --from e407  # From specific ref
 //!
+//! # View specific ref (path to ref + flat content below)
+//! meyerhold snapshot.json --view e407
+//!
 //! # Element listing
 //! meyerhold snapshot.json --list buttons
 //! meyerhold snapshot.json --list links
@@ -140,6 +143,10 @@ struct Args {
     #[arg(long)]
     regex: bool,
 
+    /// View specific ref (shows path to ref + flat content below)
+    #[arg(long)]
+    view: Option<String>,
+
     /// Output format
     #[arg(short, long, default_value = "text")]
     format: OutputFormat,
@@ -195,6 +202,8 @@ fn main() {
     // Route to appropriate handler
     if let Some(search_pattern) = &args.search {
         handle_search(&mh, search_pattern, args.regex, &args);
+    } else if let Some(ref_id) = &args.view {
+        handle_view(&mh, ref_id, &args);
     } else if let Some(list_type) = &args.list {
         handle_list(&mh, list_type, &args);
     } else if let Some(depth) = args.depth {
@@ -263,9 +272,7 @@ fn handle_summary(mh: &Meyerhold, args: &Args) {
             }
 
             println!();
-            println!("Next: --depth N  (show tree structure)");
-            println!("      --list clickable  (interactive elements only)");
-            println!("      --search \"pattern\" to find specific content");
+            println!("Next: --view REF  (show path to ref + content below)");
 
             // Display content (text, links, buttons, inputs) - flat list
             if !summary.content.is_empty() {
@@ -317,6 +324,85 @@ fn handle_summary(mh: &Meyerhold, args: &Args) {
                 }
                 if summary.content_truncated {
                     println!("... (content truncated)");
+                }
+            }
+        }
+    }
+}
+
+fn handle_view(mh: &Meyerhold, ref_id: &str, args: &Args) {
+    let result = match mh.view(ref_id) {
+        Some(r) => r,
+        None => {
+            eprintln!("ERROR: ref '{}' not found", ref_id);
+            std::process::exit(EXIT_SEARCH_ERROR);
+        }
+    };
+
+    match args.format {
+        OutputFormat::Json => {
+            let json = serde_json::json!({
+                "ref": ref_id,
+                "path": result.path,
+                "content": result.content,
+            });
+            print_json(&json);
+        }
+        _ => {
+            // Print path (hierarchy to ref)
+            println!("=== Path to [ref={}] ===", ref_id);
+            println!();
+            for line in &result.path {
+                println!("{}", line);
+            }
+
+            // Print content below
+            if !result.content.is_empty() {
+                println!();
+                println!("--- Content ---");
+                let limit = args.limit.unwrap_or(usize::MAX);
+                for (i, item) in result.content.iter().enumerate() {
+                    if i >= limit {
+                        println!("... (truncated, use --limit to show more)");
+                        break;
+                    }
+                    match item {
+                        meyerhold::ContentItem::Heading { ref_id, label } => {
+                            if ref_id.is_empty() {
+                                println!("heading: {}", label);
+                            } else {
+                                println!("heading: {} [ref={}]", label, ref_id);
+                            }
+                        }
+                        meyerhold::ContentItem::Text { ref_id, label } => {
+                            if ref_id.is_empty() {
+                                println!("text: {}", label);
+                            } else {
+                                println!("text: {} [ref={}]", label, ref_id);
+                            }
+                        }
+                        meyerhold::ContentItem::Button { ref_id, label } => {
+                            if ref_id.is_empty() {
+                                println!("button: {}", label);
+                            } else {
+                                println!("button: {} [ref={}]", label, ref_id);
+                            }
+                        }
+                        meyerhold::ContentItem::Link { ref_id, label } => {
+                            if ref_id.is_empty() {
+                                println!("link: {}", label);
+                            } else {
+                                println!("link: {} [ref={}]", label, ref_id);
+                            }
+                        }
+                        meyerhold::ContentItem::Input { ref_id, label } => {
+                            if ref_id.is_empty() {
+                                println!("input: {}", label);
+                            } else {
+                                println!("input: {} [ref={}]", label, ref_id);
+                            }
+                        }
+                    }
                 }
             }
         }

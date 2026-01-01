@@ -40,6 +40,7 @@ pub use elements::{ClickableStats, Element, ListType};
 pub use error::MeyerholdError;
 pub use search::SearchResult;
 pub use summary::{ContentItem, SnapshotSummary, DEFAULT_TEXT_CHAR_LIMIT};
+pub use tree::ViewResult;
 
 use serde_json::Value;
 
@@ -188,6 +189,18 @@ impl Meyerhold {
     /// Generic elements are replaced with `>` depth prefixes to reduce output size.
     pub fn compact_tree(&self) -> String {
         tree::get_compact_tree(&self.snapshot_text)
+    }
+
+    /// View a specific ref: show path to it and flat content below.
+    ///
+    /// Returns `Some(ViewResult)` with the hierarchy path and flat content
+    /// (heading, text, button, link, input) below it, or `None` if not found.
+    ///
+    /// # Arguments
+    ///
+    /// * `target_ref` - The ref ID to view (e.g., "e407")
+    pub fn view(&self, target_ref: &str) -> Option<ViewResult> {
+        tree::view_ref(&self.snapshot_text, target_ref)
     }
 
     /// Count blank tabs (about:blank) in the snapshot.

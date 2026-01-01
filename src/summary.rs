@@ -113,7 +113,7 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                 if !label.is_empty() {
                     let ref_id = LINE_REF_REGEX
                         .captures(line)
-                        .map(|c| c.get(1).unwrap().as_str().to_string())
+                        .and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
                         .unwrap_or_default();
                     let label_len = label.chars().count();
                     if total_chars + label_len <= char_limit {
@@ -136,7 +136,7 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                 // text: elements typically don't have ref
                 let ref_id = LINE_REF_REGEX
                     .captures(line)
-                    .map(|c| c.get(1).unwrap().as_str().to_string())
+                    .and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
                     .unwrap_or_default();
                 let label_len = label.chars().count();
                 if total_chars + label_len <= char_limit {
@@ -157,7 +157,7 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                     if !label.is_empty() {
                         let ref_id = LINE_REF_REGEX
                             .captures(line)
-                            .map(|c| c.get(1).unwrap().as_str().to_string())
+                            .and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
                             .unwrap_or_default();
                         let label_len = label.chars().count();
                         if total_chars + label_len <= char_limit {
@@ -179,7 +179,7 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                     if !label.is_empty() {
                         let ref_id = LINE_REF_REGEX
                             .captures(line)
-                            .map(|c| c.get(1).unwrap().as_str().to_string())
+                            .and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
                             .unwrap_or_default();
                         let label_len = label.chars().count();
                         if total_chars + label_len <= char_limit {
@@ -195,7 +195,7 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
         // Extract button
         else if trimmed.starts_with(ELEM_BUTTON) {
             if let Some(caps) = LINE_REF_REGEX.captures(line) {
-                let ref_id = caps.get(1).unwrap().as_str().to_string();
+                let ref_id = caps.get(1).map(|m| m.as_str().to_string()).unwrap_or_default();
                 let label = extract_quoted_content(trimmed).unwrap_or_default();
                 let label = truncate_label(&label, DEFAULT_LABEL_CHAR_LIMIT);
                 let label_len = label.chars().count();
@@ -210,7 +210,7 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
         // Extract link
         else if trimmed.starts_with(ELEM_LINK) {
             if let Some(caps) = LINE_REF_REGEX.captures(line) {
-                let ref_id = caps.get(1).unwrap().as_str().to_string();
+                let ref_id = caps.get(1).map(|m| m.as_str().to_string()).unwrap_or_default();
                 let label = extract_quoted_content(trimmed).unwrap_or_default();
                 let label = truncate_label(&label, DEFAULT_LABEL_CHAR_LIMIT);
                 let label_len = label.chars().count();
@@ -225,7 +225,7 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
         // Extract input elements
         else if input_types.iter().any(|&t| trimmed.starts_with(t)) {
             if let Some(caps) = LINE_REF_REGEX.captures(line) {
-                let ref_id = caps.get(1).unwrap().as_str().to_string();
+                let ref_id = caps.get(1).map(|m| m.as_str().to_string()).unwrap_or_default();
                 let label = extract_quoted_content(trimmed).unwrap_or_default();
                 let label = truncate_label(&label, DEFAULT_LABEL_CHAR_LIMIT);
                 let label_len = label.chars().count();
