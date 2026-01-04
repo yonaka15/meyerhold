@@ -2,6 +2,7 @@
 
 use crate::constants::*;
 use crate::regex::REF_REGEX;
+use crate::utils::{calculate_depth, extract_quoted_content, truncate_label, AncestorTracker};
 use serde::Serialize;
 
 /// Default character limit for text preview.
@@ -16,37 +17,41 @@ pub const DEFAULT_LABEL_CHAR_LIMIT: usize = 50;
 pub enum ContentItem {
     /// A heading element
     #[serde(rename = "heading")]
-    Heading { ref_id: String, label: String },
+    Heading {
+        ref_id: String,
+        label: String,
+        depth: usize,
+    },
     /// A text element
     #[serde(rename = "text")]
-    Text { ref_id: String, label: String },
+    Text {
+        ref_id: String,
+        label: String,
+        depth: usize,
+    },
     /// A button element
     #[serde(rename = "button")]
-    Button { ref_id: String, label: String },
+    Button {
+        ref_id: String,
+        label: String,
+        depth: usize,
+    },
     /// A link element
     #[serde(rename = "link")]
-    Link { ref_id: String, label: String },
+    Link {
+        ref_id: String,
+        label: String,
+        depth: usize,
+    },
     /// An input element (textbox, checkbox, etc.)
     #[serde(rename = "input")]
-    Input { ref_id: String, label: String },
+    Input {
+        ref_id: String,
+        label: String,
+        depth: usize,
+    },
 }
 
-/// Truncate label at character boundary (UTF-8 safe).
-fn truncate_label(s: &str, max_chars: usize) -> String {
-    let char_count = s.chars().count();
-    if char_count <= max_chars {
-        return s.to_string();
-    }
-
-    let truncate_at = max_chars.saturating_sub(3);
-    let end_pos = s
-        .char_indices()
-        .nth(truncate_at)
-        .map(|(pos, _)| pos)
-        .unwrap_or(s.len());
-
-    format!("{}...", &s[..end_pos])
-}
 
 /// Summary information extracted from a snapshot.
 #[derive(Debug, Clone, Serialize)]
@@ -96,6 +101,9 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
         ELEM_SEARCHBOX,
     ];
 
+    // Track visible ancestors with O(1) depth calculation
+    let mut tracker = AncestorTracker::new();
+
     for line in text.lines() {
         if line.starts_with(FIELD_PAGE_URL) {
             page_url = line.trim_start_matches(FIELD_PAGE_URL).trim().to_string();
@@ -106,6 +114,16 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
         }
 
         let trimmed = line.trim().trim_start_matches("- ");
+        let dom_depth = calculate_depth(line);
+
+        // Pop ancestors that are not parents (depth >= current)
+        tracker.pop_non_ancestors(dom_depth);
+
+        // Get visible depth (O(1))
+        let visible_depth = tracker.visible_depth();
+
+        // Track if this line is a content item
+        let mut is_content_item = false;
 
         // Extract heading content
         if trimmed.starts_with(ELEM_HEADING) {
@@ -118,7 +136,12 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                     let label_len = label.chars().count();
                     if total_chars + label_len <= char_limit {
                         total_chars += label_len;
-                        content.push(ContentItem::Heading { ref_id, label });
+                        content.push(ContentItem::Heading {
+                            ref_id,
+                            label,
+                            depth: visible_depth,
+                        });
+                        is_content_item = true;
                     } else {
                         content_truncated = true;
                     }
@@ -143,7 +166,12 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                 let label_len = label.chars().count();
                 if total_chars + label_len <= char_limit {
                     total_chars += label_len;
-                    content.push(ContentItem::Text { ref_id, label });
+                    content.push(ContentItem::Text {
+                        ref_id,
+                        label,
+                        depth: visible_depth,
+                    });
+                    is_content_item = true;
                 } else {
                     content_truncated = true;
                 }
@@ -164,7 +192,12 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                         let label_len = label.chars().count();
                         if total_chars + label_len <= char_limit {
                             total_chars += label_len;
-                            content.push(ContentItem::Text { ref_id, label });
+                            content.push(ContentItem::Text {
+                                ref_id,
+                                label,
+                                depth: visible_depth,
+                            });
+                            is_content_item = true;
                         } else {
                             content_truncated = true;
                         }
@@ -186,7 +219,12 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                         let label_len = label.chars().count();
                         if total_chars + label_len <= char_limit {
                             total_chars += label_len;
-                            content.push(ContentItem::Text { ref_id, label });
+                            content.push(ContentItem::Text {
+                                ref_id,
+                                label,
+                                depth: visible_depth,
+                            });
+                            is_content_item = true;
                         } else {
                             content_truncated = true;
                         }
@@ -203,7 +241,12 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                 let label_len = label.chars().count();
                 if total_chars + label_len <= char_limit {
                     total_chars += label_len;
-                    content.push(ContentItem::Button { ref_id, label });
+                    content.push(ContentItem::Button {
+                        ref_id,
+                        label,
+                        depth: visible_depth,
+                    });
+                    is_content_item = true;
                 } else {
                     content_truncated = true;
                 }
@@ -218,7 +261,12 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                 let label_len = label.chars().count();
                 if total_chars + label_len <= char_limit {
                     total_chars += label_len;
-                    content.push(ContentItem::Link { ref_id, label });
+                    content.push(ContentItem::Link {
+                        ref_id,
+                        label,
+                        depth: visible_depth,
+                    });
+                    is_content_item = true;
                 } else {
                     content_truncated = true;
                 }
@@ -233,12 +281,20 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
                 let label_len = label.chars().count();
                 if total_chars + label_len <= char_limit {
                     total_chars += label_len;
-                    content.push(ContentItem::Input { ref_id, label });
+                    content.push(ContentItem::Input {
+                        ref_id,
+                        label,
+                        depth: visible_depth,
+                    });
+                    is_content_item = true;
                 } else {
                     content_truncated = true;
                 }
             }
         }
+
+        // Push current line to ancestor tracker
+        tracker.push(dom_depth, is_content_item);
     }
 
     // Tab counting from dedicated section
@@ -262,18 +318,6 @@ pub fn parse_summary_with_limit(text: &str, char_limit: usize) -> SnapshotSummar
     }
 }
 
-/// Extract quoted content from a line (e.g., `heading "Title"` -> `Title`).
-fn extract_quoted_content(line: &str) -> Option<String> {
-    // Find content between quotes
-    if let Some(start) = line.find('"') {
-        if let Some(end) = line.rfind('"') {
-            if start < end {
-                return Some(line[start + 1..end].to_string());
-            }
-        }
-    }
-    None
-}
 
 /// Extract a section from snapshot text.
 pub fn extract_section(text: &str, start_marker: &str, end_marker: &str) -> String {

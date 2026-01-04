@@ -2,6 +2,9 @@
 
 use crate::constants::{SECTION_TREE_END, SECTION_TREE_START};
 use crate::summary::{extract_section, ContentItem, DEFAULT_LABEL_CHAR_LIMIT};
+use crate::utils::{
+    calculate_depth, extract_quoted_content, set_item_depth, truncate_label, AncestorTracker,
+};
 use regex::Regex;
 use std::sync::LazyLock;
 
@@ -111,31 +114,47 @@ pub fn view_ref(text: &str, target_ref: &str) -> Option<ViewResult> {
     // Reverse to get root-to-target order
     path.reverse();
 
-    // Third pass: extract flat content below target ref
+    // Third pass: extract content below target ref with visible ancestor tracking
     let mut content = Vec::new();
     let mut in_subtree = false;
+    // Track visible ancestors with O(1) depth calculation
+    let mut tracker = AncestorTracker::new();
 
     for (idx, line) in lines.iter().enumerate() {
+        let dom_depth = calculate_depth(line);
+
         if idx == target_idx {
             in_subtree = true;
-            // Also extract content from the target line itself
-            if let Some(item) = extract_content_item(line) {
+            // Target item itself has visible_depth = 0
+            if let Some(mut item) = extract_content_item_raw(line) {
+                set_item_depth(&mut item, 0);
                 content.push(item);
+                tracker.push(dom_depth, true);
+            } else {
+                tracker.push(dom_depth, false);
             }
             continue;
         }
 
         if in_subtree {
-            let indent = line.len() - line.trim_start().len();
-
             // Check if we've exited the subtree
-            if indent <= target_indent && line.trim().starts_with('-') {
+            if dom_depth <= target_indent / 2 && line.trim().starts_with('-') {
                 break;
             }
 
+            // Pop ancestors that are not parents
+            tracker.pop_non_ancestors(dom_depth);
+
+            // Get visible depth (O(1))
+            let visible_depth = tracker.visible_depth();
+
             // Extract content items
-            if let Some(item) = extract_content_item(line) {
+            if let Some(mut item) = extract_content_item_raw(line) {
+                set_item_depth(&mut item, visible_depth);
                 content.push(item);
+                tracker.push(dom_depth, true);
+            } else {
+                tracker.push(dom_depth, false);
             }
         }
     }
@@ -143,8 +162,9 @@ pub fn view_ref(text: &str, target_ref: &str) -> Option<ViewResult> {
     Some(ViewResult { path, content })
 }
 
-/// Extract a ContentItem from a tree line if it's a relevant element.
-fn extract_content_item(line: &str) -> Option<ContentItem> {
+
+/// Extract a ContentItem from a tree line (with depth=0, to be set later).
+fn extract_content_item_raw(line: &str) -> Option<ContentItem> {
     let trimmed = line.trim().trim_start_matches("- ");
 
     // Extract ref if present
@@ -155,28 +175,31 @@ fn extract_content_item(line: &str) -> Option<ContentItem> {
 
     // Heading
     if trimmed.starts_with("heading") {
-        let label = extract_quoted_label(trimmed);
+        let label = extract_quoted_content(trimmed).unwrap_or_default();
         if !label.is_empty() {
             return Some(ContentItem::Heading {
                 ref_id,
                 label: truncate_label(&label, DEFAULT_LABEL_CHAR_LIMIT),
+                depth: 0,
             });
         }
     }
     // Button
     else if trimmed.starts_with("button") {
-        let label = extract_quoted_label(trimmed);
+        let label = extract_quoted_content(trimmed).unwrap_or_default();
         return Some(ContentItem::Button {
             ref_id,
             label: truncate_label(&label, DEFAULT_LABEL_CHAR_LIMIT),
+            depth: 0,
         });
     }
     // Link
     else if trimmed.starts_with("link") {
-        let label = extract_quoted_label(trimmed);
+        let label = extract_quoted_content(trimmed).unwrap_or_default();
         return Some(ContentItem::Link {
             ref_id,
             label: truncate_label(&label, DEFAULT_LABEL_CHAR_LIMIT),
+            depth: 0,
         });
     }
     // Input types
@@ -186,10 +209,11 @@ fn extract_content_item(line: &str) -> Option<ContentItem> {
         || trimmed.starts_with("checkbox")
         || trimmed.starts_with("radio")
     {
-        let label = extract_quoted_label(trimmed);
+        let label = extract_quoted_content(trimmed).unwrap_or_default();
         return Some(ContentItem::Input {
             ref_id,
             label: truncate_label(&label, DEFAULT_LABEL_CHAR_LIMIT),
+            depth: 0,
         });
     }
     // Text element
@@ -202,6 +226,7 @@ fn extract_content_item(line: &str) -> Option<ContentItem> {
             return Some(ContentItem::Text {
                 ref_id,
                 label: label.to_string(),
+                depth: 0,
             });
         }
     }
@@ -215,6 +240,7 @@ fn extract_content_item(line: &str) -> Option<ContentItem> {
                     return Some(ContentItem::Text {
                         ref_id,
                         label: label.to_string(),
+                        depth: 0,
                     });
                 }
             }
@@ -228,39 +254,11 @@ fn extract_content_item(line: &str) -> Option<ContentItem> {
                 return Some(ContentItem::Text {
                     ref_id,
                     label: after_colon.to_string(),
+                    depth: 0,
                 });
             }
         }
     }
 
     None
-}
-
-/// Extract quoted label from element line.
-fn extract_quoted_label(content: &str) -> String {
-    if let Some(start) = content.find('"') {
-        if let Some(end) = content.rfind('"') {
-            if start < end {
-                return content[start + 1..end].to_string();
-            }
-        }
-    }
-    String::new()
-}
-
-/// Truncate label at character boundary (UTF-8 safe).
-fn truncate_label(s: &str, max_chars: usize) -> String {
-    let char_count = s.chars().count();
-    if char_count <= max_chars {
-        return s.to_string();
-    }
-
-    let truncate_at = max_chars.saturating_sub(3);
-    let end_pos = s
-        .char_indices()
-        .nth(truncate_at)
-        .map(|(pos, _)| pos)
-        .unwrap_or(s.len());
-
-    format!("{}...", &s[..end_pos])
 }

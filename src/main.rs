@@ -274,59 +274,85 @@ fn handle_summary(mh: &Meyerhold, args: &Args) {
             println!();
             println!("Next: --view REF  (show path to ref + content below)");
 
-            // Display content (text, links, buttons, inputs) - flat list
+            // Display content (text, links, buttons, inputs) with hierarchy
             if !summary.content.is_empty() {
                 println!();
                 println!("--- Content ---");
-                let limit = args.limit.unwrap_or(usize::MAX);
-                for (i, item) in summary.content.iter().enumerate() {
-                    if i >= limit {
-                        println!("... (truncated, use --limit to show more)");
-                        break;
-                    }
-                    match item {
-                        meyerhold::ContentItem::Heading { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("heading: {}", label);
-                            } else {
-                                println!("heading: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Text { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("text: {}", label);
-                            } else {
-                                println!("text: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Button { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("button: {}", label);
-                            } else {
-                                println!("button: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Link { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("link: {}", label);
-                            } else {
-                                println!("link: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Input { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("input: {}", label);
-                            } else {
-                                println!("input: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                    }
-                }
+                print_content_items(&summary.content, args.limit);
                 if summary.content_truncated {
                     println!("... (content truncated)");
                 }
             }
         }
+    }
+}
+
+/// Print content items with indentation based on visible ancestors.
+fn print_content_items(items: &[meyerhold::ContentItem], limit: Option<usize>) {
+    if items.is_empty() {
+        return;
+    }
+
+    let limit = limit.unwrap_or(usize::MAX);
+
+    for (i, item) in items.iter().enumerate() {
+        if i >= limit {
+            println!("... (truncated, use --limit to show more)");
+            break;
+        }
+
+        // depth = number of visible (content item) ancestors
+        let depth = get_item_depth(item);
+        let indent = "  ".repeat(depth);
+
+        match item {
+            meyerhold::ContentItem::Heading { ref_id, label, .. } => {
+                if ref_id.is_empty() {
+                    println!("{}heading: {}", indent, label);
+                } else {
+                    println!("{}heading: {} [ref={}]", indent, label, ref_id);
+                }
+            }
+            meyerhold::ContentItem::Text { ref_id, label, .. } => {
+                if ref_id.is_empty() {
+                    println!("{}text: {}", indent, label);
+                } else {
+                    println!("{}text: {} [ref={}]", indent, label, ref_id);
+                }
+            }
+            meyerhold::ContentItem::Button { ref_id, label, .. } => {
+                if ref_id.is_empty() {
+                    println!("{}button: {}", indent, label);
+                } else {
+                    println!("{}button: {} [ref={}]", indent, label, ref_id);
+                }
+            }
+            meyerhold::ContentItem::Link { ref_id, label, .. } => {
+                if ref_id.is_empty() {
+                    println!("{}link: {}", indent, label);
+                } else {
+                    println!("{}link: {} [ref={}]", indent, label, ref_id);
+                }
+            }
+            meyerhold::ContentItem::Input { ref_id, label, .. } => {
+                if ref_id.is_empty() {
+                    println!("{}input: {}", indent, label);
+                } else {
+                    println!("{}input: {} [ref={}]", indent, label, ref_id);
+                }
+            }
+        }
+    }
+}
+
+/// Get depth from ContentItem.
+fn get_item_depth(item: &meyerhold::ContentItem) -> usize {
+    match item {
+        meyerhold::ContentItem::Heading { depth, .. } => *depth,
+        meyerhold::ContentItem::Text { depth, .. } => *depth,
+        meyerhold::ContentItem::Button { depth, .. } => *depth,
+        meyerhold::ContentItem::Link { depth, .. } => *depth,
+        meyerhold::ContentItem::Input { depth, .. } => *depth,
     }
 }
 
@@ -360,50 +386,7 @@ fn handle_view(mh: &Meyerhold, ref_id: &str, args: &Args) {
             if !result.content.is_empty() {
                 println!();
                 println!("--- Content ---");
-                let limit = args.limit.unwrap_or(usize::MAX);
-                for (i, item) in result.content.iter().enumerate() {
-                    if i >= limit {
-                        println!("... (truncated, use --limit to show more)");
-                        break;
-                    }
-                    match item {
-                        meyerhold::ContentItem::Heading { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("heading: {}", label);
-                            } else {
-                                println!("heading: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Text { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("text: {}", label);
-                            } else {
-                                println!("text: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Button { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("button: {}", label);
-                            } else {
-                                println!("button: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Link { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("link: {}", label);
-                            } else {
-                                println!("link: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Input { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("input: {}", label);
-                            } else {
-                                println!("input: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                    }
-                }
+                print_content_items(&result.content, args.limit);
             }
         }
     }
