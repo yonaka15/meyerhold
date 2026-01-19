@@ -52,6 +52,94 @@ const EXIT_SEARCH_ERROR: i32 = 4;
 const EXIT_REGEX_ERROR: i32 = 5;
 
 // =============================================================================
+// Binary file detection
+// =============================================================================
+
+// Binary file magic bytes
+const PNG_MAGIC: &[u8] = &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+const JPEG_MAGIC: &[u8] = &[0xFF, 0xD8, 0xFF];
+const GIF_MAGIC: &[u8] = b"GIF8";
+const RIFF_MAGIC: &[u8] = b"RIFF";
+const WEBP_MAGIC: &[u8] = b"WEBP";
+const BMP_MAGIC: &[u8] = b"BM";
+const TIFF_LE_MAGIC: &[u8] = &[0x49, 0x49, 0x2A, 0x00];
+const TIFF_BE_MAGIC: &[u8] = &[0x4D, 0x4D, 0x00, 0x2A];
+const PDF_MAGIC: &[u8] = b"%PDF";
+
+enum BinaryType {
+    Png,
+    Jpeg,
+    Gif,
+    WebP,
+    Bmp,
+    Tiff,
+    Pdf,
+    Unknown,
+}
+
+impl BinaryType {
+    fn name(&self) -> &'static str {
+        match self {
+            BinaryType::Png => "PNG image",
+            BinaryType::Jpeg => "JPEG image",
+            BinaryType::Gif => "GIF image",
+            BinaryType::WebP => "WebP image",
+            BinaryType::Bmp => "BMP image",
+            BinaryType::Tiff => "TIFF image",
+            BinaryType::Pdf => "PDF document",
+            BinaryType::Unknown => "binary file",
+        }
+    }
+}
+
+fn detect_binary(path: &str) -> Result<Option<BinaryType>, std::io::Error> {
+    use std::io::Read;
+
+    let mut file = std::fs::File::open(path)?;
+    let mut header = [0u8; 12];
+    let bytes_read = file.read(&mut header)?;
+
+    if bytes_read == 0 {
+        return Ok(None);
+    }
+
+    let header = &header[..bytes_read];
+
+    // Check magic bytes for known formats
+    if header.starts_with(PNG_MAGIC) {
+        return Ok(Some(BinaryType::Png));
+    }
+    if header.starts_with(JPEG_MAGIC) {
+        return Ok(Some(BinaryType::Jpeg));
+    }
+    if header.starts_with(GIF_MAGIC) {
+        return Ok(Some(BinaryType::Gif));
+    }
+    if header.starts_with(RIFF_MAGIC) && header.len() >= 12 && &header[8..12] == WEBP_MAGIC {
+        return Ok(Some(BinaryType::WebP));
+    }
+    if header.starts_with(BMP_MAGIC) {
+        return Ok(Some(BinaryType::Bmp));
+    }
+    if header.starts_with(TIFF_LE_MAGIC) || header.starts_with(TIFF_BE_MAGIC) {
+        return Ok(Some(BinaryType::Tiff));
+    }
+    if header.starts_with(PDF_MAGIC) {
+        return Ok(Some(BinaryType::Pdf));
+    }
+
+    // Check for null bytes (generic binary detection)
+    let mut buffer = vec![0u8; 8192];
+    let n = file.read(&mut buffer)?;
+
+    if header.contains(&0) || buffer[..n].contains(&0) {
+        return Ok(Some(BinaryType::Unknown));
+    }
+
+    Ok(None)
+}
+
+// =============================================================================
 // CLI types
 // =============================================================================
 
@@ -162,6 +250,24 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
+
+    // Check for binary file before attempting text read
+    match detect_binary(&args.file) {
+        Ok(Some(binary_type)) => {
+            eprintln!(
+                "ERROR: File '{}' is a {}, not a JSON file",
+                args.file,
+                binary_type.name()
+            );
+            eprintln!("Hint: meyerhold expects Playwright MCP snapshot JSON files");
+            std::process::exit(EXIT_FILE_ERROR);
+        }
+        Ok(None) => {}
+        Err(e) => {
+            eprintln!("ERROR: Failed to read file '{}': {}", args.file, e);
+            std::process::exit(EXIT_FILE_ERROR);
+        }
+    }
 
     // Read file
     let content = match fs::read_to_string(&args.file) {

@@ -616,3 +616,56 @@ fn test_all_datasets_list_clickable() {
             .success();
     }
 }
+
+// =============================================================================
+// Binary File Detection Tests
+// =============================================================================
+
+#[test]
+fn test_binary_png_file() {
+    let temp_dir = std::env::temp_dir();
+    let png_file = temp_dir.join("meyerhold_test_fake.json");
+    std::fs::write(&png_file, &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00]).unwrap();
+
+    meyerhold()
+        .arg(&png_file)
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("PNG image"))
+        .stderr(predicate::str::contains("not a JSON file"));
+
+    std::fs::remove_file(&png_file).ok();
+}
+
+#[test]
+fn test_binary_jpeg_file() {
+    let temp_dir = std::env::temp_dir();
+    let jpeg_file = temp_dir.join("meyerhold_test_jpeg.json");
+    std::fs::write(&jpeg_file, &[0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10]).unwrap();
+
+    meyerhold()
+        .arg(&jpeg_file)
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("JPEG image"));
+
+    std::fs::remove_file(&jpeg_file).ok();
+}
+
+#[test]
+fn test_binary_with_null_bytes() {
+    let temp_dir = std::env::temp_dir();
+    let bin_file = temp_dir.join("meyerhold_test_binary.json");
+    std::fs::write(&bin_file, b"some\x00binary\x00data").unwrap();
+
+    meyerhold()
+        .arg(&bin_file)
+        .assert()
+        .failure()
+        .code(1)
+        .stderr(predicate::str::contains("binary file"));
+
+    std::fs::remove_file(&bin_file).ok();
+}
