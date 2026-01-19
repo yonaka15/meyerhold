@@ -8,6 +8,34 @@ Progressive reader for Playwright MCP snapshot JSON files. Parses `.content[0].t
 - **Read-only tool**: Analyzes snapshots only. Does not interact with browsers or modify files.
 - **Exit codes matter**: Non-zero exits indicate specific errors (1=file, 2=JSON, 3=format, 4=search, 5=regex).
 
+## Playwright MCP Tools That Return Snapshots
+
+Most action tools return snapshots after execution. Source: [microsoft/playwright mcp/browser/tools](https://github.com/microsoft/playwright/tree/main/packages/playwright/src/mcp/browser/tools)
+
+| Tool | Snapshot | Notes |
+|------|----------|-------|
+| `browser_snapshot` | Always | Explicit snapshot capture |
+| `browser_click` | Always | After click completes |
+| `browser_fill` | Always | After form fill |
+| `browser_select_option` | Always | After selection |
+| `browser_press_key` | Always | After key press |
+| `browser_type` | Conditional | When `slowly=true` or `submit=true` |
+| `browser_mouse_click_xy` | Always | After XY coordinate click |
+| `browser_mouse_drag` | Always | After drag operation |
+| `browser_hover` | Always | After hover |
+| `browser_navigate` | Always | After navigation |
+| `browser_go_back` | Always | After back navigation |
+| `browser_file_upload` | Always | After file upload |
+| `browser_handle_dialog` | Always | After dialog handling |
+| `browser_tabs` | Varies | Tab operations may include snapshot |
+| `browser_take_screenshot` | No | Returns image, not accessibility snapshot |
+| `browser_pdf_save` | No | Returns PDF file |
+| `browser_network_requests` | No | Returns network data only |
+
+**Output format differences**:
+- `browser_snapshot`: Includes `### Open tabs` section
+- Action tools (click, fill, etc.): Include `### Ran Playwright code` section with executed code
+
 ## Core Workflow (80% of use cases)
 
 ### 1. Quick Page Analysis

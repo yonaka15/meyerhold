@@ -52,6 +52,94 @@ const EXIT_SEARCH_ERROR: i32 = 4;
 const EXIT_REGEX_ERROR: i32 = 5;
 
 // =============================================================================
+// Binary file detection
+// =============================================================================
+
+// Binary file magic bytes
+const PNG_MAGIC: &[u8] = &[0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
+const JPEG_MAGIC: &[u8] = &[0xFF, 0xD8, 0xFF];
+const GIF_MAGIC: &[u8] = b"GIF8";
+const RIFF_MAGIC: &[u8] = b"RIFF";
+const WEBP_MAGIC: &[u8] = b"WEBP";
+const BMP_MAGIC: &[u8] = b"BM";
+const TIFF_LE_MAGIC: &[u8] = &[0x49, 0x49, 0x2A, 0x00];
+const TIFF_BE_MAGIC: &[u8] = &[0x4D, 0x4D, 0x00, 0x2A];
+const PDF_MAGIC: &[u8] = b"%PDF";
+
+enum BinaryType {
+    Png,
+    Jpeg,
+    Gif,
+    WebP,
+    Bmp,
+    Tiff,
+    Pdf,
+    Unknown,
+}
+
+impl BinaryType {
+    fn name(&self) -> &'static str {
+        match self {
+            BinaryType::Png => "PNG image",
+            BinaryType::Jpeg => "JPEG image",
+            BinaryType::Gif => "GIF image",
+            BinaryType::WebP => "WebP image",
+            BinaryType::Bmp => "BMP image",
+            BinaryType::Tiff => "TIFF image",
+            BinaryType::Pdf => "PDF document",
+            BinaryType::Unknown => "binary file",
+        }
+    }
+}
+
+fn detect_binary(path: &str) -> Result<Option<BinaryType>, std::io::Error> {
+    use std::io::Read;
+
+    let mut file = std::fs::File::open(path)?;
+    let mut header = [0u8; 12];
+    let bytes_read = file.read(&mut header)?;
+
+    if bytes_read == 0 {
+        return Ok(None);
+    }
+
+    let header = &header[..bytes_read];
+
+    // Check magic bytes for known formats
+    if header.starts_with(PNG_MAGIC) {
+        return Ok(Some(BinaryType::Png));
+    }
+    if header.starts_with(JPEG_MAGIC) {
+        return Ok(Some(BinaryType::Jpeg));
+    }
+    if header.starts_with(GIF_MAGIC) {
+        return Ok(Some(BinaryType::Gif));
+    }
+    if header.starts_with(RIFF_MAGIC) && header.len() >= 12 && &header[8..12] == WEBP_MAGIC {
+        return Ok(Some(BinaryType::WebP));
+    }
+    if header.starts_with(BMP_MAGIC) {
+        return Ok(Some(BinaryType::Bmp));
+    }
+    if header.starts_with(TIFF_LE_MAGIC) || header.starts_with(TIFF_BE_MAGIC) {
+        return Ok(Some(BinaryType::Tiff));
+    }
+    if header.starts_with(PDF_MAGIC) {
+        return Ok(Some(BinaryType::Pdf));
+    }
+
+    // Check for null bytes (generic binary detection)
+    let mut buffer = vec![0u8; 8192];
+    let n = file.read(&mut buffer)?;
+
+    if header.contains(&0) || buffer[..n].contains(&0) {
+        return Ok(Some(BinaryType::Unknown));
+    }
+
+    Ok(None)
+}
+
+// =============================================================================
 // CLI types
 // =============================================================================
 
@@ -162,6 +250,24 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
+
+    // Check for binary file before attempting text read
+    match detect_binary(&args.file) {
+        Ok(Some(binary_type)) => {
+            eprintln!(
+                "ERROR: File '{}' is a {}, not a JSON file",
+                args.file,
+                binary_type.name()
+            );
+            eprintln!("Hint: meyerhold expects Playwright MCP snapshot JSON files");
+            std::process::exit(EXIT_FILE_ERROR);
+        }
+        Ok(None) => {}
+        Err(e) => {
+            eprintln!("ERROR: Failed to read file '{}': {}", args.file, e);
+            std::process::exit(EXIT_FILE_ERROR);
+        }
+    }
 
     // Read file
     let content = match fs::read_to_string(&args.file) {
@@ -274,59 +380,85 @@ fn handle_summary(mh: &Meyerhold, args: &Args) {
             println!();
             println!("Next: --view REF  (show path to ref + content below)");
 
-            // Display content (text, links, buttons, inputs) - flat list
+            // Display content (text, links, buttons, inputs) with hierarchy
             if !summary.content.is_empty() {
                 println!();
                 println!("--- Content ---");
-                let limit = args.limit.unwrap_or(usize::MAX);
-                for (i, item) in summary.content.iter().enumerate() {
-                    if i >= limit {
-                        println!("... (truncated, use --limit to show more)");
-                        break;
-                    }
-                    match item {
-                        meyerhold::ContentItem::Heading { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("heading: {}", label);
-                            } else {
-                                println!("heading: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Text { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("text: {}", label);
-                            } else {
-                                println!("text: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Button { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("button: {}", label);
-                            } else {
-                                println!("button: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Link { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("link: {}", label);
-                            } else {
-                                println!("link: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Input { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("input: {}", label);
-                            } else {
-                                println!("input: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                    }
-                }
+                print_content_items(&summary.content, args.limit);
                 if summary.content_truncated {
                     println!("... (content truncated)");
                 }
             }
         }
+    }
+}
+
+/// Print content items with indentation based on visible ancestors.
+fn print_content_items(items: &[meyerhold::ContentItem], limit: Option<usize>) {
+    if items.is_empty() {
+        return;
+    }
+
+    let limit = limit.unwrap_or(usize::MAX);
+
+    for (i, item) in items.iter().enumerate() {
+        if i >= limit {
+            println!("... (truncated, use --limit to show more)");
+            break;
+        }
+
+        // depth = number of visible (content item) ancestors
+        let depth = get_item_depth(item);
+        let indent = "  ".repeat(depth);
+
+        match item {
+            meyerhold::ContentItem::Heading { ref_id, label, .. } => {
+                if ref_id.is_empty() {
+                    println!("{}heading: {}", indent, label);
+                } else {
+                    println!("{}heading: {} [ref={}]", indent, label, ref_id);
+                }
+            }
+            meyerhold::ContentItem::Text { ref_id, label, .. } => {
+                if ref_id.is_empty() {
+                    println!("{}text: {}", indent, label);
+                } else {
+                    println!("{}text: {} [ref={}]", indent, label, ref_id);
+                }
+            }
+            meyerhold::ContentItem::Button { ref_id, label, .. } => {
+                if ref_id.is_empty() {
+                    println!("{}button: {}", indent, label);
+                } else {
+                    println!("{}button: {} [ref={}]", indent, label, ref_id);
+                }
+            }
+            meyerhold::ContentItem::Link { ref_id, label, .. } => {
+                if ref_id.is_empty() {
+                    println!("{}link: {}", indent, label);
+                } else {
+                    println!("{}link: {} [ref={}]", indent, label, ref_id);
+                }
+            }
+            meyerhold::ContentItem::Input { ref_id, label, .. } => {
+                if ref_id.is_empty() {
+                    println!("{}input: {}", indent, label);
+                } else {
+                    println!("{}input: {} [ref={}]", indent, label, ref_id);
+                }
+            }
+        }
+    }
+}
+
+/// Get depth from ContentItem.
+fn get_item_depth(item: &meyerhold::ContentItem) -> usize {
+    match item {
+        meyerhold::ContentItem::Heading { depth, .. } => *depth,
+        meyerhold::ContentItem::Text { depth, .. } => *depth,
+        meyerhold::ContentItem::Button { depth, .. } => *depth,
+        meyerhold::ContentItem::Link { depth, .. } => *depth,
+        meyerhold::ContentItem::Input { depth, .. } => *depth,
     }
 }
 
@@ -360,50 +492,7 @@ fn handle_view(mh: &Meyerhold, ref_id: &str, args: &Args) {
             if !result.content.is_empty() {
                 println!();
                 println!("--- Content ---");
-                let limit = args.limit.unwrap_or(usize::MAX);
-                for (i, item) in result.content.iter().enumerate() {
-                    if i >= limit {
-                        println!("... (truncated, use --limit to show more)");
-                        break;
-                    }
-                    match item {
-                        meyerhold::ContentItem::Heading { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("heading: {}", label);
-                            } else {
-                                println!("heading: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Text { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("text: {}", label);
-                            } else {
-                                println!("text: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Button { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("button: {}", label);
-                            } else {
-                                println!("button: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Link { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("link: {}", label);
-                            } else {
-                                println!("link: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                        meyerhold::ContentItem::Input { ref_id, label } => {
-                            if ref_id.is_empty() {
-                                println!("input: {}", label);
-                            } else {
-                                println!("input: {} [ref={}]", label, ref_id);
-                            }
-                        }
-                    }
-                }
+                print_content_items(&result.content, args.limit);
             }
         }
     }

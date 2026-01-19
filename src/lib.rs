@@ -34,6 +34,7 @@ mod regex;
 mod search;
 mod summary;
 mod tree;
+mod utils;
 
 // Public re-exports
 pub use elements::{ClickableStats, Element, ListType};
